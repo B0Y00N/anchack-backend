@@ -1,0 +1,66 @@
+### Gradle ###
+.gradle/
+build/
+.kotlin/
+
+# Gradle Wrapper는 Git에 포함
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+### Java ###
+*.class
+hs_err_pid*
+replay_pid*
+
+### Local configuration / secrets ###
+src/main/resources/application.properties
+src/main/resources/application-local.properties
+src/main/resources/application-secret.properties
+src/test/resources/application.properties
+
+.env
+.env.*
+!.env.example
+
+### Logs / runtime files ###
+logs/
+*.log
+uploads/
+tmp/
+temp/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+### Eclipse / STS ###
+.apt_generated/
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+bin/
+
+### NetBeans ###
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### macOS ###
+.DS_Store
+._*
+__MACOSX/
+
+### Windows ###
+Thumbs.db
+Desktop.ini

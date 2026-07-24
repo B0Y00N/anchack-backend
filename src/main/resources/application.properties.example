@@ -1,0 +1,4 @@
+jdbc.driver=com.mysql.cj.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/anchack?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useUnicode=true&allowPublicKeyRetrieval=true&useSSL=false
+jdbc.username=YOUR_DB_USERNAME
+jdbc.password=YOUR_DB_PASSWORD
