@@ -59,6 +59,19 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
     testImplementation "org.springframework:spring-test:${springVersion}"
     testImplementation 'org.mockito:mockito-junit-jupiter:5.12.0'
+
+    // Flyway (DB 마이그레이션)
+//    implementation "org.flywaydb:flyway-core:${flywayVersion}"
+//    implementation "org.flywaydb:flyway-mysql:${flywayVersion}"
+    implementation 'org.flywaydb:flyway-core:10.17.0'
+    implementation 'org.flywaydb:flyway-mysql:10.17.0'
+
+    // 카카오 API 응답(JSON) 파싱
+    implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+
+    // DB 커넥션 풀
+    implementation 'org.apache.commons:commons-dbcp2:2.11.0'
+
 }
 
 tasks.withType(JavaCompile).configureEach {

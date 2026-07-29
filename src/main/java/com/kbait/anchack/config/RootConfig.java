@@ -12,7 +12,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
@@ -23,18 +25,34 @@ import javax.sql.DataSource;
         encoding = "UTF-8"
 )
 @MapperScan("com.kbait.anchack.mapper")
-@ComponentScan("com.kbait.anchack.service")
+@ComponentScan(basePackages = {
+        "com.kbait.anchack.service",
+        "com.kbait.anchack.repository"
+})
 @EnableTransactionManagement
 public class RootConfig {
 
+//    @Value("${jdbc.driver}")
+//    String driver;
+//    @Value("${jdbc.url}")
+//    String url;
+//    @Value("${jdbc.username}")
+//    String username;
+//    @Value("${jdbc.password}")
+//    String password;
+
     @Value("${jdbc.driver}")
-    String driver;
+    private String driver;
+
     @Value("${jdbc.url}")
-    String url;
+    private String url;
+
     @Value("${jdbc.username}")
-    String username;
+    private String username;
+
     @Value("${jdbc.password}")
-    String password;
+    private String password;
+
     @Autowired
     ApplicationContext applicationContext;
 
@@ -74,4 +92,11 @@ public class RootConfig {
     public DataSourceTransactionManager transactionManager() {
         return new DataSourceTransactionManager(dataSource());
     }
+
+    @Bean
+    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
+    }
+
+
 }

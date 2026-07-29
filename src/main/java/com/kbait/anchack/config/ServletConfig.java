@@ -2,11 +2,18 @@ package com.kbait.anchack.config;
 
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.*;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 @EnableWebMvc
-@ComponentScan("com.kbait.anchack.controller")
+@ComponentScan(basePackages = {
+        "com.kbait.anchack.controller",
+        "com.kbait.anchack.service",
+        "com.kbait.anchack.repository",
+        "com.kbait.anchack.exception"
+})
 public class ServletConfig implements WebMvcConfigurer {
 
     @Override
@@ -22,6 +29,7 @@ public class ServletConfig implements WebMvcConfigurer {
                         "OPTIONS"
                 )
                 .allowedHeaders("*")
+                .allowCredentials(true)
                 .maxAge(3600);
     }
 }
