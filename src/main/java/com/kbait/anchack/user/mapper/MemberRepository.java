@@ -1,6 +1,6 @@
-package com.kbait.anchack.repository;
+package com.kbait.anchack.user.mapper;
 
-import com.kbait.anchack.entity.KakaoMember;
+import com.kbait.anchack.user.model.KakaoMember;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;

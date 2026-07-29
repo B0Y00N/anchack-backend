@@ -1,8 +1,8 @@
-package com.kbait.anchack.service;
+package com.kbait.anchack.user.service;
 
-import com.kbait.anchack.dto.KakaoUserInfo;
-import com.kbait.anchack.entity.KakaoMember;
-import com.kbait.anchack.repository.MemberRepository;
+import com.kbait.anchack.user.dto.KakaoUserInfo;
+import com.kbait.anchack.user.model.KakaoMember;
+import com.kbait.anchack.user.mapper.MemberRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

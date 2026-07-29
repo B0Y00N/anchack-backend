@@ -1,9 +1,9 @@
-package com.kbait.anchack.controller;
+package com.kbait.anchack.user.controller;
 
-import com.kbait.anchack.dto.KakaoUserInfo;
-import com.kbait.anchack.entity.KakaoMember;
-import com.kbait.anchack.service.KakaoAuthService;
-import com.kbait.anchack.service.MemberService;
+import com.kbait.anchack.user.dto.KakaoUserInfo;
+import com.kbait.anchack.user.model.KakaoMember;
+import com.kbait.anchack.user.service.KakaoAuthService;
+import com.kbait.anchack.user.service.MemberService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;

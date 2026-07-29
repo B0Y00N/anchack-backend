@@ -24,8 +24,8 @@ import javax.sql.DataSource;
 )
 @MapperScan("com.kbait.anchack.mapper")
 @ComponentScan(basePackages = {
-        "com.kbait.anchack.service",
-        "com.kbait.anchack.repository"
+        "com.kbait.anchack.user.service",
+        "com.kbait.anchack.user.mapper"
 })
 @EnableTransactionManagement
 public class RootConfig {

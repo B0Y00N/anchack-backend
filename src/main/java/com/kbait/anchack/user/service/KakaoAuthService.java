@@ -1,8 +1,8 @@
-package com.kbait.anchack.service;
+package com.kbait.anchack.user.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kbait.anchack.dto.KakaoUserInfo;
+import com.kbait.anchack.user.dto.KakaoUserInfo;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;

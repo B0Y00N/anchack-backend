@@ -1,14 +1,13 @@
-package com.kbait.anchack.entity;
+package com.kbait.anchack.user.dto;
 
 import java.io.Serializable;
 
 /**
- * DB에 저장되는 카카오 회원 정보 (kakao_member 테이블 매핑)
+ * 카카오 사용자 정보 (v2/user/me 응답에서 필요한 값만 추출)
  */
-public class KakaoMember implements Serializable {
+public class KakaoUserInfo implements Serializable {
 
     private Long id;
-    private Long kakaoId;
     private String nickname;
     private String profileImage;
     private String email;
@@ -19,14 +18,6 @@ public class KakaoMember implements Serializable {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public Long getKakaoId() {
-        return kakaoId;
-    }
-
-    public void setKakaoId(Long kakaoId) {
-        this.kakaoId = kakaoId;
     }
 
     public String getNickname() {
@@ -53,4 +44,3 @@ public class KakaoMember implements Serializable {
         this.email = email;
     }
 }
-

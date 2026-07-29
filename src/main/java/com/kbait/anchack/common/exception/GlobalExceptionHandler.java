@@ -1,4 +1,4 @@
-package com.kbait.anchack.exception;
+package com.kbait.anchack.common.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
