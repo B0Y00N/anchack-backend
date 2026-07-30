@@ -1,9 +1,9 @@
 package com.kbait.anchack.user.controller;
 
 import com.kbait.anchack.user.dto.KakaoUserInfo;
-import com.kbait.anchack.user.model.KakaoMember;
+import com.kbait.anchack.user.domain.User;
 import com.kbait.anchack.user.service.KakaoAuthService;
-import com.kbait.anchack.user.service.MemberService;
+import com.kbait.anchack.user.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -29,32 +29,32 @@ public class AuthController {
     private KakaoAuthService kakaoAuthService;
 
     @Autowired
-    private MemberService memberService;
+    private UserService userService;
 
     @PostMapping("/kakao/callback")
-    public KakaoMember kakaoLogin(@RequestBody CodeRequest request, HttpSession session) {
+    public User kakaoLogin(@RequestBody CodeRequest request, HttpSession session) {
         String accessToken = kakaoAuthService.getAccessToken(request.getCode());
         KakaoUserInfo userInfo = kakaoAuthService.getUserInfo(accessToken);
 
-        // DB에 회원 저장(최초) 또는 갱신(기존)
-        KakaoMember member = memberService.saveOrUpdate(userInfo);
+        // users 테이블에 회원 저장(최초) 또는 갱신(기존)
+        User user = userService.saveOrUpdate(userInfo);
 
         // 간단 예제이므로 세션에 로그인 회원 정보 저장
         // (실무에서는 세션 대신 JWT 발급 방식도 고려)
-        session.setAttribute("LOGIN_USER", member);
+        session.setAttribute("LOGIN_USER", user);
 
-        return member;
+        return user;
     }
 
     @GetMapping("/me")
-    public ResponseEntity<KakaoMember> me(HttpSession session) {
-        KakaoMember member = (KakaoMember) session.getAttribute("LOGIN_USER");
+    public ResponseEntity<User> me(HttpSession session) {
+        User user = (User) session.getAttribute("LOGIN_USER");
 
-        if (member == null) {
+        if (user == null) {
             return ResponseEntity.noContent().build();
         }
 
-        return ResponseEntity.ok(member);
+        return ResponseEntity.ok(user);
     }
 
     @PostMapping("/logout")
