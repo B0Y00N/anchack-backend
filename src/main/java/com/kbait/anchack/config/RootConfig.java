@@ -9,10 +9,12 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
@@ -22,7 +24,7 @@ import javax.sql.DataSource;
         value = "classpath:application.properties",
         encoding = "UTF-8"
 )
-@MapperScan("com.kbait.anchack.mapper")
+@MapperScan("com.kbait.anchack.*.mapper")
 @ComponentScan(basePackages = {
         "com.kbait.anchack.user.service",
         "com.kbait.anchack.user.mapper"
@@ -30,29 +32,16 @@ import javax.sql.DataSource;
 @EnableTransactionManagement
 public class RootConfig {
 
-//    @Value("${jdbc.driver}")
-//    String driver;
-//    @Value("${jdbc.url}")
-//    String url;
-//    @Value("${jdbc.username}")
-//    String username;
-//    @Value("${jdbc.password}")
-//    String password;
-
-    @Value("${jdbc.driver}")
-    private String driver;
-
-    @Value("${jdbc.url}")
-    private String url;
-
-    @Value("${jdbc.username}")
-    private String username;
-
-    @Value("${jdbc.password}")
-    private String password;
-
     @Autowired
     ApplicationContext applicationContext;
+    @Value("${jdbc.driver}")
+    private String driver;
+    @Value("${jdbc.url}")
+    private String url;
+    @Value("${jdbc.username}")
+    private String username;
+    @Value("${jdbc.password}")
+    private String password;
 
     @Bean
     public DataSource dataSource() {
