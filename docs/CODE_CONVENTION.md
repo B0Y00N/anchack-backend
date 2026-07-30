@@ -2,26 +2,13 @@
 
 안착 Backend Repository에 적용하는 규칙입니다.
 
-브랜치·커밋·PR·보안 등 협업 규칙은 조직의 [CONTRIBUTING.md](https://github.com/kb-a-it/.github/blob/main/CONTRIBUTING.md)를 따르고, 이 문서는 Java·Spring Framework·MyBatis 작성 기준만 다룹니다.
-
-이 문서에는 **이 프로젝트에서만 참인 규칙**을 담습니다. 일반적인 Java 코드 작성법은 10장의 스타일 가이드에 위임합니다.
+브랜치·커밋·PR·보안 등 협업 규칙은 조직의 [CONTRIBUTING.md](https://github.com/kb-a-it/.github/blob/main/CONTRIBUTING.md)를 따릅니다.
 
 ---
 
 ## 1. 스택과 제약
 
-**Spring Boot가 아닙니다.** Legacy Spring + WAR 구성입니다. 아래를 반드시 지켜주세요.
-
-| 항목 | 사용 |
-|---|---|
-| Java | 17 |
-| Spring Framework | 5.3.37 (Boot 아님) |
-| 영속성 | MyBatis 3.5.16 + MyBatis-Spring 2.1.2 (JPA·Spring Data 사용하지 않음) |
-| 서블릿 API | `javax.*` (`jakarta.*` 아님) |
-| 빌드·배포 | Gradle, WAR, 외부 Tomcat |
-| 설정 | Java Config (`RootConfig`, `ServletConfig`) |
-
-다음은 사용하지 않습니다. AI 도구로 코드를 생성하면 자주 섞여 들어오니 특히 주의해주세요.
+Spring Boot가 아니라 Legacy Spring 5.3 + WAR 구성입니다. AI 도구로 코드를 생성하면 Boot 기준 코드가 섞여 들어와 컴파일이 깨지는 경우가 많으니, 다음은 이 프로젝트에서 쓰지 않습니다.
 
 - `@SpringBootApplication`, `@SpringBootTest`, `spring-boot-starter-*`
 - `application.yml` (설정은 `application.properties`)
@@ -50,27 +37,13 @@ com.kbait.anchack                    review
 - 패키지 간 순환 의존성을 만들지 않습니다.
 - Mapper XML도 같은 기능 기준으로 배치합니다.
 
-> 컴포넌트 스캔과 MapperScan 변경 전까지는 기존 패키지 구조로 작업합니다. (11장 참고)
+> 컴포넌트 스캔과 MapperScan 변경 전까지는 기존 패키지 구조로 작업합니다. (12장 참고)
 
 ## 3. 계층 규칙
 
-```text
-Controller → Service → Domain / Mapper / Client → DB / 외부 API
-```
-
-**Controller** — HTTP 입출력만 담당합니다. 비즈니스 로직, DB 직접 접근, 점수 계산, 긴 반복문을 두지 않습니다.
-
-**Service** — 비즈니스 규칙과 트랜잭션 경계를 담당합니다.
-
-- **모든 Service는 인터페이스와 구현체를 분리합니다.** 구현체는 `service.impl`에 두고 이름은 `기능명ServiceImpl`로 작성합니다. — 여러 명이 동시에 작업할 때 인터페이스를 계약으로 먼저 확정하기 위함입니다.
-- Controller는 구현체가 아니라 인터페이스에 의존합니다.
+- **모든 Service는 인터페이스와 구현체를 분리합니다.** 구현체는 `service.impl`에 두고 이름은 `기능명ServiceImpl`로 작성하며, Controller는 인터페이스에 의존합니다. — 여러 명이 동시에 작업할 때 인터페이스를 계약으로 먼저 확정하기 위함입니다.
 - `@Service`와 `@Transactional`은 **구현체**에 선언합니다. — 인터페이스에 선언하면 프록시 생성 방식에 따라 적용되지 않을 수 있습니다.
-- 인터페이스에 `Map<String, Object>` 같은 구현 세부사항을 노출하지 않습니다.
-- 외부 API 호출을 긴 DB 트랜잭션 안에 넣지 않습니다.
-
-**Mapper** — SQL 실행과 결과 매핑만 담당합니다. 비즈니스 판단과 HTTP 관련 코드를 넣지 않습니다.
-
-**Client** — 외부 API(주소·지도·경로) 호출을 분리합니다. 외부 응답 DTO를 내부 응답으로 그대로 쓰지 않고, 외부 예외를 내부 예외로 변환합니다. — 외부 API 변경이 내부 로직으로 번지지 않도록 하기 위함입니다.
+- 외부 API(주소·지도·경로) 호출은 `client` 패키지로 분리합니다. 외부 응답 DTO를 내부 응답으로 그대로 쓰지 않고, 외부 예외를 내부 예외로 변환합니다. — 외부 API 변경이 내부 로직으로 번지지 않도록 하기 위함입니다.
 
 ## 4. 이름
 
@@ -94,6 +67,16 @@ Controller → Service → Domain / Mapper / Client → DB / 외부 API
 | `findAll` | 여러 건 조회 |
 | `exists` | 존재 여부 |
 | `count` | 개수 |
+
+**Boolean 반환 접두사**
+
+| 접두사 | 의미 |
+|---|---|
+| `is` | 상태나 조건이 맞는지 판단 |
+| `has` | 무언가를 가지고 있는지 확인 |
+| `can` | 할 수 있는지 확인 |
+
+값을 꺼내서 바깥에서 판단하지 말고, 이 접두사로 객체에 직접 물어봅니다. (6장 참고)
 
 **Mapper는 `find` 계열만 사용합니다.** 결과가 없을 때 예외로 바꾸는 책임은 Service가 가집니다. — Mapper는 예외를 던지지 않기 때문입니다.
 
@@ -141,10 +124,13 @@ private Review getReview(Long reviewId) {
 - URI는 명사·복수형으로 쓰고 행위는 HTTP Method로 표현합니다.
 - **경로 세그먼트는 하이픈**(`/api/admin-dongs`), **Query Parameter는 camelCase**(`?adminDongId=10`)를 씁니다. — Spring MVC는 하이픈이 포함된 파라미터를 Java 필드에 자동 바인딩하지 못하고, `@ModelAttribute` DTO 바인딩은 아예 불가능합니다.
 
-```text
-GET /api/reviews          GET /api/reviews/{reviewId}       POST /api/reviews
-PATCH /api/reviews/{reviewId}                               DELETE /api/reviews/{reviewId}
-```
+| Method | URI | 설명 |
+|---|---|---|
+| GET | `/api/reviews` | 목록 조회 |
+| GET | `/api/reviews/{reviewId}` | 단건 조회 |
+| POST | `/api/reviews` | 생성 |
+| PATCH | `/api/reviews/{reviewId}` | 수정 |
+| DELETE | `/api/reviews/{reviewId}` | 삭제 |
 
 **모든 응답은 `ApiResponse<T>`로 감쌉니다.** HTTP 상태 코드도 그대로 사용합니다.
 
@@ -181,14 +167,39 @@ PATCH /api/reviews/{reviewId}                               DELETE /api/reviews/
 
 > 그 밖의 보안 규칙(비밀값 커밋 금지, `.example` 파일 관리 등)은 [CONTRIBUTING.md](https://github.com/kb-a-it/.github/blob/main/CONTRIBUTING.md) 9장을 따릅니다.
 
-## 10. 테스트와 코드 스타일
+## 10. 메서드 설계
+
+- 메서드는 한 가지 일만 담당합니다. 이름에 "그리고"가 필요하다면 분리 신호입니다.
+- 본문은 **15줄 이내**로 작성합니다. 넘으면 메서드나 클래스 분리를 고민합니다. — 길이가 길어질수록 여러 책임이 섞여 있을 가능성이 높습니다.
+
+## 11. 테스트와 코드 스타일
 
 전체 TDD는 강제하지 않습니다. **결과가 명확한 핵심 로직**에는 단위 테스트를 작성합니다. — 추천 점수 계산, 예산·통근시간 조건 판별, 리뷰 수정·삭제 권한, 외부 API 응답 변환, 예외 발생 조건.
 
 - assertion은 **AssertJ**(`assertThat`, `assertThatThrownBy`)를 씁니다.
 - 한 테스트는 하나의 케이스만 검증하고, 조건이 다르면 `if`로 분기하지 말고 테스트를 나눕니다.
+- **성공 케이스와 실패 케이스를 함께 작성합니다.** 실패 케이스는 예외가 발생하는 조건, 경계값, 입력이 없는 경우를 확인합니다. 성공 경로만 확인하면 예외 처리 로직이 검증되지 않습니다.
 - private 메서드를 직접 테스트하지 않습니다. 필요하다고 느껴지면 별도 책임으로 분리할 수 있는지 검토합니다.
-- 테스트 이름은 한글로 작성하고 조건과 예상 결과가 드러나게 씁니다. (`예산을_초과한_동네는_추천_후보에서_제외한다`)
+- 테스트 이름은 한글로 작성하고 조건과 예상 결과가 드러나게 씁니다.
+
+```java
+@Test
+void 예산을_초과한_동네는_추천_후보에서_제외한다() {
+    RecommendationCondition condition = RecommendationCondition.of(500_000, 30);
+
+    List<AdminDong> result = recommendationService.recommend(condition);
+
+    assertThat(result).allMatch(dong -> dong.getDeposit() <= condition.getBudget());
+}
+
+@Test
+void 존재하지_않는_리뷰를_수정하면_예외가_발생한다() {
+    ReviewUpdateRequest request = new ReviewUpdateRequest("내용");
+
+    assertThatThrownBy(() -> reviewService.update(999L, request))
+            .isInstanceOf(ReviewNotFoundException.class);
+}
+```
 
 **코드 스타일은 [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html)를 따릅니다.** 다음 두 가지만 다릅니다.
 
@@ -197,13 +208,13 @@ PATCH /api/reviews/{reviewId}                               DELETE /api/reviews/
 
 들여쓰기·인코딩·줄바꿈은 `.editorconfig`로 관리하므로 IDE에서 EditorConfig 지원을 켜두세요.
 
-## 11. 보류 중인 결정
+## 12. 보류 중인 결정
 
 - **인증·인가 방식(세션 / JWT) 미정.** 결정 후 인증 사용자 정보를 Controller에 전달하는 방식과 401·403 응답 형식을 9장에 추가합니다.
 - **컴포넌트 스캔·MapperScan 변경 미적용.** 현재 `RootConfig`는 `com.kbait.anchack.service`, `ServletConfig`는 `com.kbait.anchack.controller`만 스캔하므로 2장의 구조를 지금 적용하면 빈이 등록되지 않습니다. 별도 PR에서 처리하며, 그때 `common/exception`의 `@RestControllerAdvice` 등록 여부도 함께 확인합니다.
 - **선행 작업.** Lombok·AssertJ 의존성 추가, `mybatis-config.xml` 설정, `.editorconfig` 추가.
 
-## 12. PR 전 확인사항
+## 13. PR 전 확인사항
 
 공통 항목은 [CONTRIBUTING.md](https://github.com/kb-a-it/.github/blob/main/CONTRIBUTING.md) 5장을 확인하고, 여기서는 Java·Spring 항목만 봅니다.
 
@@ -217,16 +228,16 @@ PATCH /api/reviews/{reviewId}                               DELETE /api/reviews/
 - [ ] 권한과 소유권을 서버에서 검증했습니다.
 - [ ] 핵심 로직의 단위 테스트를 작성했습니다.
 
-## 13. 결정 기록
+## 14. 결정 기록
+
+논의 과정에서 대안을 검토하고 확정한 것만 기록합니다. 미정인 항목은 11장에 둡니다.
 
 | 날짜 | 결정 | 검토한 대안 | 이유 |
 |---|---|---|---|
-| 2026-07 | 기능 기준 패키지 구조 | 계층 기준 구조 | 담당 기능 코드 탐색과 영향 범위 파악 |
-| 2026-07 | Service 인터페이스 + 구현체 분리 | 구현체만 사용 | 병렬 작업 시 계약 우선 확정 |
-| 2026-07 | 응답을 `ApiResponse<T>`로 래핑 | DTO 직접 반환 | 성공·오류 응답 형식 통일 |
-| 2026-07 | Lombok 사용 | 직접 작성 | 반복 코드 감소 |
-| 2026-07 | `mapUnderscoreToCamelCase` 사용 | 컬럼 별칭, resultMap | SQL 중복 제거 |
-| 2026-07 | 테스트 assertion은 AssertJ | JUnit 기본 assertion | 실패 메시지 가독성 |
-| — | 인증·인가 방식 | 세션 / JWT | **미정** |
+| | Service 인터페이스 + 구현체 분리 | 구현체만 사용 | 병렬 작업 시 계약 우선 확정 |
+| | 응답을 `ApiResponse<T>`로 래핑 | DTO 직접 반환 | 성공·오류 응답 형식 통일 |
+| | Lombok 사용 | 직접 작성 | 반복 코드 감소 |
+| | `mapUnderscoreToCamelCase` 사용 | 컬럼 별칭, resultMap | SQL 중복 제거 |
+| | 테스트 assertion은 AssertJ | JUnit 기본 assertion | 실패 메시지 가독성 |
 
-> 규칙의 추가·변경·삭제 기준은 [CONTRIBUTING.md](https://github.com/kb-a-it/.github/blob/main/CONTRIBUTING.md)의 컨벤션 관리 규칙을 따릅니다.
+> 날짜는 실제 논의·병합 시점으로 채워주세요. 규칙의 추가·변경·삭제 기준은 [CONTRIBUTING.md](https://github.com/kb-a-it/.github/blob/main/CONTRIBUTING.md)의 컨벤션 관리 규칙을 따릅니다.
