@@ -1,7 +1,9 @@
 package com.kbait.anchack.user.controller;
 
+import com.kbait.anchack.common.response.ApiResponse;
 import com.kbait.anchack.user.dto.KakaoUserInfo;
 import com.kbait.anchack.user.domain.User;
+import com.kbait.anchack.user.dto.response.UserResponse;
 import com.kbait.anchack.user.service.KakaoAuthService;
 import com.kbait.anchack.user.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +34,7 @@ public class AuthController {
     private UserService userService;
 
     @PostMapping("/kakao/callback")
-    public User kakaoLogin(@RequestBody CodeRequest request, HttpSession session) {
+    public ApiResponse<UserResponse> kakaoLogin(@RequestBody CodeRequest request, HttpSession session) {
         String accessToken = kakaoAuthService.getAccessToken(request.getCode());
         KakaoUserInfo userInfo = kakaoAuthService.getUserInfo(accessToken);
 
@@ -43,18 +45,18 @@ public class AuthController {
         // (실무에서는 세션 대신 JWT 발급 방식도 고려)
         session.setAttribute("LOGIN_USER", user);
 
-        return user;
+        return ApiResponse.success(UserResponse.from(user));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<User> me(HttpSession session) {
+    public ResponseEntity<ApiResponse<UserResponse>> me(HttpSession session) {
         User user = (User) session.getAttribute("LOGIN_USER");
 
         if (user == null) {
             return ResponseEntity.noContent().build();
         }
 
-        return ResponseEntity.ok(user);
+        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(user)));
     }
 
     @PostMapping("/logout")
