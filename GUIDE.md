@@ -23,35 +23,34 @@ docker info
 
 에러가 나면 Docker Desktop을 실행하고 트레이 아이콘이 "Running" 상태가 될 때까지 기다린 뒤 다시 시도하세요.
 
-## 2. 3306 포트가 비어 있는지 확인
+## 2. 3307 포트가 비어 있는지 확인
 
-로컬에 MySQL을 따로 설치해서 쓰고 있었다면 3306 포트가 이미 점유되어 있어서 `mysql` 컨테이너가 뜨지 못합니다. 아래 에러가 그 증상입니다.
+로컬 MySQL과의 충돌을 피하려고 `mysql` 컨테이너의 호스트 포트를 **3307**로 매핑해뒀습니다 (컨테이너 내부/컨테이너 간 통신은 그대로 3306 사용 — `flyway`, `app`이 `mysql:3306`으로 접속하는 설정은 안 바뀜). 그래도 이미 3307을 쓰는 다른 프로세스가 있으면 아래 에러가 납니다.
 
 ```
-Error response from daemon: ports are not available: exposing port TCP 0.0.0.0:3306 -> 127.0.0.1:0: ...
+Error response from daemon: ports are not available: exposing port TCP 0.0.0.0:3307 -> 127.0.0.1:0: ...
 ```
 
 **Windows (PowerShell / Git Bash)**
 
 ```bash
-netstat -ano | grep ':3306'
+netstat -ano | grep ':3307'
 ```
 
-가장 오른쪽 열이 PID입니다. 작업 관리자에서 해당 PID(보통 `mysqld`)를 찾아 종료하거나, 로컬 MySQL 서비스 자체를 중지하세요.
+가장 오른쪽 열이 PID입니다. 작업 관리자에서 해당 PID를 찾아 종료하거나, 해당 서비스를 중지하세요.
 
 ```powershell
-Get-Service | Where-Object { $_.DisplayName -like "*MySQL*" }
-Stop-Service <서비스이름>
+Get-Process -Id <PID>
+Stop-Process -Id <PID>
 ```
 
 **macOS / Linux**
 
 ```bash
-lsof -i :3306
-# 필요 시
-brew services stop mysql   # macOS, Homebrew로 설치한 경우
-sudo systemctl stop mysql  # Linux
+lsof -i :3307
 ```
+
+> 호스트에서 DB 클라이언트(DBeaver, MySQL Workbench 등)로 이 도커 MySQL에 직접 접속하고 싶다면 `127.0.0.1:3307`로 접속하면 됩니다 (3306이 아님).
 
 ## 3. 환경변수 파일 준비
 
@@ -100,7 +99,7 @@ docker compose logs flyway
 | 증상 | 원인 / 해결 |
 |---|---|
 | `docker compose up`이 데몬 연결 에러로 즉시 실패 | Docker Desktop 미실행 → 1번 항목 참고 |
-| `mysql` 컨테이너가 포트 바인딩 실패로 못 뜸 | 로컬 3306 포트 점유 → 2번 항목 참고 |
+| `mysql` 컨테이너가 포트 바인딩 실패로 못 뜸 | 로컬 3307 포트 점유 → 2번 항목 참고 |
 | `flyway`가 `RSA public key is not available` 에러로 실패 | MySQL 8의 `caching_sha2_password` 인증 문제. `docker-compose.yml`의 JDBC URL에 이미 `allowPublicKeyRetrieval=true&useSSL=false`가 반영되어 있어야 함 (반영 안 된 옛 버전이라면 최신 `docker-compose.yml`로 다시 pull) |
 | 스키마를 처음부터 다시 적용하고 싶음 | `docker compose down -v` 로 볼륨까지 삭제 후 `docker compose up --build` 재실행 (로컬 더미 데이터가 전부 날아가니 주의) |
 | 코드만 바꿨는데 반영이 안 됨 | `docker compose up --build` 로 이미지 재빌드 필요 (`--build` 없이 `up`만 하면 기존 이미지를 재사용함) |
