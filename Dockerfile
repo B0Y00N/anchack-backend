@@ -1,7 +1,8 @@
 FROM gradle:8-jdk17 AS build
 WORKDIR /app
 COPY . .
-RUN gradle war --no-daemon
+COPY docker/application.properties src/main/resources/application.properties
+RUN chmod +x ./gradlew && ./gradlew war --no-daemon
 
 FROM tomcat:9.0-jdk17
 RUN rm -rf /usr/local/tomcat/webapps/ROOT
