@@ -1,10 +1,13 @@
 package com.kbait.anchack.common.response;
 
+import lombok.Getter;
+
+@Getter
 public class ApiResponse<T> {
 
-    private boolean success;
-    private T data;
-    private String message;
+    private final boolean success;
+    private final T data;
+    private final String message;
 
     private ApiResponse(boolean success, T data, String message) {
         this.success = success;
@@ -22,17 +25,5 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> error(String message) {
         return new ApiResponse<>(false, null, message);
-    }
-
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public T getData() {
-        return data;
-    }
-
-    public String getMessage() {
-        return message;
     }
 }
