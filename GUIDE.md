@@ -62,6 +62,8 @@ cp .env.example .env
 
 기본값(`DB_ROOT_PASSWORD=localpassword`) 그대로 써도 되고, 원하면 값을 바꿔도 됩니다.
 
+카카오 로그인까지 테스트하려면 `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`도 채워야 합니다(카카오 개발자 콘솔에서 발급). 비워두면 앱은 정상 기동되지만 카카오 로그인만 실패합니다.
+
 ## 4. 전체 스택 실행
 
 ```bash
@@ -103,7 +105,8 @@ docker compose logs flyway
 | `flyway`가 `RSA public key is not available` 에러로 실패 | MySQL 8의 `caching_sha2_password` 인증 문제. `docker-compose.yml`의 JDBC URL에 이미 `allowPublicKeyRetrieval=true&useSSL=false`가 반영되어 있어야 함 (반영 안 된 옛 버전이라면 최신 `docker-compose.yml`로 다시 pull) |
 | 스키마를 처음부터 다시 적용하고 싶음 | `docker compose down -v` 로 볼륨까지 삭제 후 `docker compose up --build` 재실행 (로컬 더미 데이터가 전부 날아가니 주의) |
 | 코드만 바꿨는데 반영이 안 됨 | `docker compose up --build` 로 이미지 재빌드 필요 (`--build` 없이 `up`만 하면 기존 이미지를 재사용함) |
-| 앱은 잘 뜨는데 카카오 로그인(`/api/auth/kakao/callback`)만 안 됨 | `kakao.client-id` / `kakao.redirect-uri` 값이 `application.properties`에도 docker-compose 환경변수에도 없어서, 값이 없는 채로도 앱 자체는 조용히 기동됨(예외 없음). 카카오 로그인을 실제로 테스트하려면 로컬 `application.properties`에 카카오 개발자 콘솔에서 발급받은 값을 직접 추가해야 함 |
+| 앱은 잘 뜨는데 카카오 로그인(`/api/auth/kakao/callback`)만 안 됨 | `.env`에 `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET` / `KAKAO_REDIRECT_URI`가 비어 있으면 앱 자체는 조용히 잘 뜨지만 카카오 로그인만 실패함. `.env`에 카카오 개발자 콘솔에서 발급받은 값을 채우고 `docker compose up --build`로 재기동하면 해결됨 (3번 항목 참고) |
+| `flyway`가 `Validate failed: Migration checksum mismatch for migration version 1` 에러로 실패 | 예전에 이 프로젝트를 이미 한 번 세팅해서 V1 마이그레이션을 적용한 적이 있는데, 그 뒤 `V1__init_schema.sql` 내용이 수정된 경우(파일명은 같아도 체크섬이 달라짐). `docker compose down -v` 로 로컬 DB 볼륨을 통째로 지우고 `docker compose up --build`로 처음부터 다시 적용하면 해결됨 |
 
 ## 7. 스택 종료
 

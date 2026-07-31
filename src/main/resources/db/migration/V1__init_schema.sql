@@ -1,9 +1,9 @@
--- V2: 안착 서비스 초기 ERD 스키마
+-- V1: 안착 서비스 초기 ERD 스키마
 -- draft.sql(ERD 산출물) 기반, 다음 5가지를 CREATE TABLE 정의 자체에 반영함
 --   1) recommendations.status DEFAULT 'VALID' (따옴표 누락 수정)
 --   2) review_reports.handler_id NULL 허용
 --   3) UNIQUE 제약 추가 (gus, admin_dongs, data_sources, review_categories, users)
---   4) 서지게이트 BIGINT 단일 PK 테이블에 AUTO_INCREMENT 추가
+--   4) 서로게이트 BIGINT 단일 PK 테이블에 AUTO_INCREMENT 추가
 --   5) admin_dong_id/data_date, reviews, recommendations 인덱스 추가
 -- FK는 전체 34개로 확장 (admin_dongs/users/user_conditions/recommendations/reviews 등 모든 참조 컬럼 커버)
 -- 그 외: birth_date DEFAULT YYYYMMDD(유효하지 않은 MySQL 문법) 제거
