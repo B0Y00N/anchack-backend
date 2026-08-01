@@ -316,8 +316,7 @@ CREATE TABLE `admin_dongs` (
 	`longitude`	DECIMAL(12,9)	NOT NULL,
 	`created_at`	DATETIME	NOT NULL	DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (`admin_dong_id`),
-	UNIQUE KEY `uq_admin_dongs_name` (`name`),
-	UNIQUE KEY `uq_admin_dongs_code` (`code`)
+	UNIQUE KEY `uq_admin_dongs_gu_code` (`gu_id`, `code`)
 );
 
 DROP TABLE IF EXISTS `condition_gus`;
