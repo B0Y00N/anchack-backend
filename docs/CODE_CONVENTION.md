@@ -8,11 +8,13 @@
 
 ## 1. 스택과 제약
 
-Spring Boot가 아니라 Legacy Spring 5.3 + WAR 구성입니다. AI 도구로 코드를 생성하면 Boot 기준 코드가 섞여 들어와 컴파일이 깨지는 경우가 많으니, 다음은 이 프로젝트에서 쓰지 않습니다.
+- **사용 기술**: Java 17, Spring Framework 5.3.37(Legacy), MyBatis 3.5.16, Gradle
+
+AI 도구로 코드를 생성하면 Spring Boot 기준 코드가 섞여 들어와 컴파일이 깨지는 경우가 많으니, 다음은 이 프로젝트에서 쓰지 않습니다.
 
 - `@SpringBootApplication`, `@SpringBootTest`, `spring-boot-starter-*`
 - `application.yml` (설정은 `application.properties`)
-- `jakarta.validation`, `jakarta.servlet` 등 `jakarta.*` 패키지
+- `jakarta.validation`, `jakarta.servlet` 등 `jakarta.*` 패키지 (`javax.servlet`, `javax.validation` 사용)
 - `JpaRepository`, `@Entity`
 
 ## 2. 패키지 구조
@@ -105,10 +107,8 @@ private Review getReview(Long reviewId) {
 | `@ToString` | 필요한 필드만 지정 |
 | `@Data`, `@Value` | 사용하지 않음 |
 
-- `@Data`는 `@Setter`·`@EqualsAndHashCode`·`@ToString`을 한 번에 만듭니다. — 의도하지 않은 상태 변경과 연관 객체 순환 참조가 생기므로 필요한 것만 개별 선언합니다.
+- `@Data`는 쓰지 않습니다. `@Setter`·`@EqualsAndHashCode`·`@ToString`이 한 번에 생성되어 의도치 않은 상태 변경, 연관 객체 순환 참조로 이어집니다.
 - 의존성 주입은 `@RequiredArgsConstructor` + `private final`을 사용합니다. 필드 주입(`@Autowired`)을 쓰지 않습니다.
-- **MyBatis가 매핑하는 클래스는 `@NoArgsConstructor`가 필요합니다.** — MyBatis와 Jackson은 기본 생성자로 객체를 만든 뒤 값을 채우므로, `final` 필드와 `@RequiredArgsConstructor`만 있으면 매핑되지 않습니다.
-- `@ToString`에 비밀번호·토큰 필드를 포함하지 않습니다. — 로그에 그대로 노출됩니다.
 
 ## 6. Domain과 DTO
 
@@ -139,7 +139,7 @@ private Review getReview(Long reviewId) {
 { "success": false, "data": null, "error": { "code": "REVIEW_NOT_FOUND", "message": "리뷰를 찾을 수 없습니다." } }
 ```
 
-- `error.code`는 `{도메인}_{사유}` 형식의 대문자 스네이크로 작성하고, **`common/exception/ErrorCode` enum 한 곳에서만 정의합니다.** 문자열 리터럴을 직접 쓰지 않습니다. — 담당자마다 다른 코드가 생기지 않도록 하기 위함입니다.
+- `error.code`는 `{도메인}_{사유}` 형식의 대문자 스네이크로 작성하고, **`common/exception/ErrorCode` enum 한 곳에서만 정의합니다.** 문자열 리터럴을 직접 쓰지 않습니다.
 - `error.message`는 사용자에게 그대로 보여줄 수 있는 문장으로 쓰고 내부 구현 정보를 담지 않습니다.
 - 목록 응답의 페이징 정보(`page`, `size`, `totalElements`)는 `data` 안에 넣습니다.
 
@@ -170,7 +170,7 @@ private Review getReview(Long reviewId) {
 ## 10. 메서드 설계
 
 - 메서드는 한 가지 일만 담당합니다. 이름에 "그리고"가 필요하다면 분리 신호입니다.
-- 본문은 **15줄 이내**로 작성합니다. 넘으면 메서드나 클래스 분리를 고민합니다. — 길이가 길어질수록 여러 책임이 섞여 있을 가능성이 높습니다.
+- 메서드는 **15줄 내외**를 기준으로 작성합니다. 절대 기준은 아니지만, 넘어간다면 여러 책임이 섞여 있다는 신호로 보고 메서드·클래스 분리를 검토합니다.
 
 ## 11. 테스트와 코드 스타일
 
@@ -232,12 +232,9 @@ void 존재하지_않는_리뷰를_수정하면_예외가_발생한다() {
 
 논의 과정에서 대안을 검토하고 확정한 것만 기록합니다. 미정인 항목은 11장에 둡니다.
 
+> 아직 코드리뷰가 시작되지 않아 기록된 결정이 없습니다. 리뷰 중 대안을 검토하고 확정한 항목부터 아래 표에 채웁니다.
+
 | 날짜 | 결정 | 검토한 대안 | 이유 |
 |---|---|---|---|
-| | Service 인터페이스 + 구현체 분리 | 구현체만 사용 | 병렬 작업 시 계약 우선 확정 |
-| | 응답을 `ApiResponse<T>`로 래핑 | DTO 직접 반환 | 성공·오류 응답 형식 통일 |
-| | Lombok 사용 | 직접 작성 | 반복 코드 감소 |
-| | `mapUnderscoreToCamelCase` 사용 | 컬럼 별칭, resultMap | SQL 중복 제거 |
-| | 테스트 assertion은 AssertJ | JUnit 기본 assertion | 실패 메시지 가독성 |
 
 > 날짜는 실제 논의·병합 시점으로 채워주세요. 규칙의 추가·변경·삭제 기준은 [CONTRIBUTING.md](https://github.com/kb-a-it/.github/blob/main/CONTRIBUTING.md)의 컨벤션 관리 규칙을 따릅니다.
