@@ -1,0 +1,49 @@
+# EditorConfig: https://editorconfig.org
+# 안착 Backend 코드 컨벤션 11장 기준
+
+root = true
+
+# 기본값 — 별도 규칙이 없는 모든 파일에 적용
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# Java 소스
+[*.java]
+indent_size = 4
+max_line_length = 120
+
+# Gradle 빌드 스크립트
+[*.{gradle,gradle.kts}]
+indent_size = 4
+
+# MyBatis Mapper XML, web.xml 등 — SQL 태그 중첩이 깊어 Java(4칸)와 달리 2칸 사용
+[*.xml]
+indent_size = 2
+
+# 설정 파일 — application.properties 등 (application.yml은 컨벤션상 미사용)
+[*.properties]
+indent_size = 4
+end_of_line = lf
+
+# JSON / JS / TS (프론트 연동, 설정 파일 등)
+[*.{json,js,ts}]
+indent_size = 2
+
+# YAML — CI 설정(GitHub Actions 등)에서 쓸 수 있어 남겨둠
+[*.{yml,yaml}]
+indent_size = 2
+
+# 마크다운 — 줄 끝 공백 2칸이 줄바꿈 문법이라 trim 제외, 줄 길이 제한 없음
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+# Makefile은 탭이 필수
+[Makefile]
+indent_style = tab
