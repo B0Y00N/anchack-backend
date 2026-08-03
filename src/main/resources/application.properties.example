@@ -1,0 +1,4 @@
+jdbc.driver=com.mysql.cj.jdbc.Driver
+jdbc.url=${JDBC_URL:jdbc:mysql://127.0.0.1:3306/anchack}
+jdbc.username=${JDBC_USERNAME:root}
+jdbc.password=${JDBC_PASSWORD:root}

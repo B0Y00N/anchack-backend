@@ -1,0 +1,47 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: anchack
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  flyway:
+    image: flyway/flyway:10
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command:
+      - -url=jdbc:mysql://mysql:3306/anchack?allowPublicKeyRetrieval=true&useSSL=false
+      - -user=root
+      - -password=${DB_ROOT_PASSWORD}
+      - -locations=filesystem:/flyway/sql
+      - migrate
+    volumes:
+      - ./src/main/resources/db/migration:/flyway/sql
+
+  app:
+    build: .
+    depends_on:
+      flyway:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    environment:
+      JDBC_URL: jdbc:mysql://mysql:3306/anchack?allowPublicKeyRetrieval=true&useSSL=false
+      JDBC_USERNAME: root
+      JDBC_PASSWORD: ${DB_ROOT_PASSWORD}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:-}
+
+volumes:
+  mysql_data:
