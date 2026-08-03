@@ -201,18 +201,18 @@ void 존재하지_않는_리뷰를_수정하면_예외가_발생한다() {
 }
 ```
 
-**코드 스타일은 [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html)를 따릅니다.** 다음 두 가지만 다릅니다.
+**코드 스타일은 [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html)를 따릅니다.** 다음은 예외입니다.
 
-- 들여쓰기 **공백 4칸** (Google은 2칸)
-- 한 줄 **최대 120자** (Google은 100자)
+- **Java 코드 들여쓰기**: 공백 **4칸** (Google은 2칸)
+- **한 줄 최대 120자** (Google은 100자)
+- **XML(Mapper·설정 파일 등) 들여쓰기는 Java와 다르게 공백 2칸**을 씁니다. — MyBatis 공식 예제 관례를 따르고, `<where>`·`<if>`처럼 태그 중첩이 깊어지는 SQL 매퍼 특성상 4칸이면 가독성이 떨어지기 때문입니다. **Java는 4칸, XML은 2칸으로 다르다는 점에 주의하세요.**
 
-들여쓰기·인코딩·줄바꿈은 `.editorconfig`로 관리하므로 IDE에서 EditorConfig 지원을 켜두세요.
+들여쓰기·인코딩·줄바꿈은 `.editorconfig`로 관리하므로 IDE에서 EditorConfig 지원을 켜두세요. Windows·Mac 혼용 환경에서 줄바꿈 문자(LF/CRLF)가 깨지는 것을 막기 위해 `.gitattributes`도 함께 사용합니다.
 
 ## 12. 보류 중인 결정
 
 - **인증·인가 방식(세션 / JWT) 미정.** 결정 후 인증 사용자 정보를 Controller에 전달하는 방식과 401·403 응답 형식을 9장에 추가합니다.
 - **컴포넌트 스캔·MapperScan 변경 미적용.** 현재 `RootConfig`는 `com.kbait.anchack.service`, `ServletConfig`는 `com.kbait.anchack.controller`만 스캔하므로 2장의 구조를 지금 적용하면 빈이 등록되지 않습니다. 별도 PR에서 처리하며, 그때 `common/exception`의 `@RestControllerAdvice` 등록 여부도 함께 확인합니다.
-- **선행 작업.** Lombok·AssertJ 의존성 추가, `mybatis-config.xml` 설정, `.editorconfig` 추가.
 
 ## 13. PR 전 확인사항
 
@@ -230,9 +230,7 @@ void 존재하지_않는_리뷰를_수정하면_예외가_발생한다() {
 
 ## 14. 결정 기록
 
-논의 과정에서 대안을 검토하고 확정한 것만 기록합니다. 미정인 항목은 11장에 둡니다.
-
-> 아직 코드리뷰가 시작되지 않아 기록된 결정이 없습니다. 리뷰 중 대안을 검토하고 확정한 항목부터 아래 표에 채웁니다.
+논의 과정에서 대안을 검토하고 확정한 것만 기록합니다. 미정인 항목은 12장에 둡니다.
 
 | 날짜 | 결정 | 검토한 대안 | 이유 |
 |---|---|---|---|
