@@ -3,17 +3,20 @@ package com.kbait.anchack.ingestion.parser;
 import com.kbait.anchack.ingestion.client.MolitRentApiCategory;
 import com.kbait.anchack.ingestion.dto.external.MolitRentPage;
 import com.kbait.anchack.ingestion.dto.external.RawRentalTransaction;
-import com.kbait.anchack.ingestion.exception.MolitRentApiException;
+import com.kbait.anchack.ingestion.exception.MolitRentApiResponseException;
 import com.kbait.anchack.ingestion.exception.MolitRentParseException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,26 +24,19 @@ import java.util.List;
 public class MolitRentXmlParser {
 
     public MolitRentPage parse(MolitRentApiCategory apiCategory, String xml) {
+        if (xml == null || xml.isBlank()) {
+            throw new MolitRentParseException("국토부 전월세 XML 응답이 비어 있습니다.");
+        }
+
         try {
             Document document = parseDocument(xml);
-            Element response = getResponseElement(document);
-            Element body = getRequiredDirectChild(response, "body");
-            Element items = getRequiredDirectChild(body, "items");
-
-            return new MolitRentPage(
-                    parseItems(items, apiCategory),
-                    parseRequiredInt(body, "pageNo"),
-                    parseRequiredInt(body, "numOfRows"),
-                    parseRequiredInt(body, "totalCount")
-            );
-        } catch (MolitRentApiException exception) {
-            throw exception;
-        } catch (Exception exception) {
+            return parseRoot(document, apiCategory);
+        } catch (ParserConfigurationException | SAXException | IOException exception) {
             throw new MolitRentParseException("국토부 전월세 XML 응답을 파싱할 수 없습니다.", exception);
         }
     }
 
-    private Document parseDocument(String xml) throws Exception {
+    private Document parseDocument(String xml) throws ParserConfigurationException, SAXException, IOException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -56,14 +52,58 @@ public class MolitRentXmlParser {
         return documentBuilder.parse(new InputSource(new StringReader(xml)));
     }
 
-    private Element getResponseElement(Document document) {
-        Element response = document.getDocumentElement();
+    private MolitRentPage parseRoot(Document document, MolitRentApiCategory apiCategory) {
+        Element root = document.getDocumentElement();
 
-        if (response == null || !"response".equals(response.getTagName())) {
-            throw new MolitRentParseException("국토부 전월세 XML 응답의 최상위 요소가 response가 아닙니다.");
+        if (root == null) {
+            throw new MolitRentParseException("국토부 전월세 XML 응답의 최상위 요소가 없습니다.");
         }
 
-        return response;
+        if ("response".equals(root.getTagName())) {
+            return parseResponse(root, apiCategory);
+        }
+
+        if ("OpenAPI_ServiceResponse".equals(root.getTagName())) {
+            throw createCommonApiResponseException(root);
+        }
+
+        throw new MolitRentParseException("국토부 전월세 XML 응답의 최상위 요소를 지원하지 않습니다.");
+    }
+
+    private MolitRentPage parseResponse(Element response, MolitRentApiCategory apiCategory) {
+        Element header = getRequiredDirectChild(response, "header");
+        validateHeader(header);
+
+        Element body = getRequiredDirectChild(response, "body");
+        Element items = getRequiredDirectChild(body, "items");
+
+        return new MolitRentPage(
+                parseItems(items, apiCategory),
+                parseRequiredInt(body, "pageNo"),
+                parseRequiredInt(body, "numOfRows"),
+                parseRequiredInt(body, "totalCount")
+        );
+    }
+
+    private void validateHeader(Element header) {
+        String resultCode = getRequiredDirectText(header, "resultCode");
+        String resultMessage = getOptionalDirectText(header, "resultMsg");
+
+        if (!"000".equals(resultCode)) {
+            throw new MolitRentApiResponseException(resultCode, resultMessage);
+        }
+    }
+
+    private MolitRentApiResponseException createCommonApiResponseException(Element response) {
+        Element header = getRequiredDirectChild(response, "cmmMsgHeader");
+        String resultCode = getRequiredDirectText(header, "returnReasonCode");
+        String resultMessage = getOptionalDirectText(header, "returnAuthMsg");
+
+        if (resultMessage == null) {
+            resultMessage = getOptionalDirectText(header, "errMsg");
+        }
+
+        return new MolitRentApiResponseException(resultCode, resultMessage);
     }
 
     private List<RawRentalTransaction> parseItems(Element items, MolitRentApiCategory apiCategory) {
@@ -98,14 +138,7 @@ public class MolitRentXmlParser {
     }
 
     private int parseRequiredInt(Element parent, String tagName) {
-        Element element = getRequiredDirectChild(parent, tagName);
-        String value = element.getTextContent();
-
-        if (value == null || value.isBlank()) {
-            throw new MolitRentParseException(
-                    "국토부 전월세 XML 응답의 " + tagName + " 값이 비어 있습니다."
-            );
-        }
+        String value = getRequiredDirectText(parent, tagName);
 
         try {
             return Integer.parseInt(value.trim());
@@ -126,6 +159,19 @@ public class MolitRentXmlParser {
 
         String value = element.getTextContent();
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private String getRequiredDirectText(Element parent, String tagName) {
+        Element element = getRequiredDirectChild(parent, tagName);
+        String value = element.getTextContent();
+
+        if (value == null || value.isBlank()) {
+            throw new MolitRentParseException(
+                    "국토부 전월세 XML 응답의 " + tagName + " 값이 비어 있습니다."
+            );
+        }
+
+        return value;
     }
 
     private Element getRequiredDirectChild(Element parent, String tagName) {
