@@ -22,21 +22,9 @@ import javax.sql.DataSource;
         value = "classpath:application.properties",
         encoding = "UTF-8"
 )
-<<<<<<< HEAD:src/main/java/com/kbait/anchack/config/RootConfig.java
 @MapperScan("com.kbait.anchack.*.mapper")
 @ComponentScan(basePackages = {
-        "com.kbait.anchack.*.service",
-        "com.kbait.anchack.*.mapper"
-=======
-@MapperScan({
-        "com.kbait.anchack.auth.mapper",
-        "com.kbait.anchack.user.mapper"
-})
-@ComponentScan(basePackages = {
-        "com.kbait.anchack.auth.service",
-        "com.kbait.anchack.user.service",
-        "com.kbait.anchack.common.security"
->>>>>>> feat/kakao-login:src/main/java/com/kbait/anchack/common/config/RootConfig.java
+        "com.kbait.anchack.*.service"
 })
 @EnableTransactionManagement
 public class RootConfig {
@@ -59,9 +47,7 @@ public class RootConfig {
         this.applicationContext = applicationContext;
     }
 
-    /**
-     * HikariCP DataSource 설정
-     */
+    // HikariCP DataSource 설정
     @Bean
     public DataSource dataSource() {
 
@@ -81,9 +67,7 @@ public class RootConfig {
         return new HikariDataSource(config);
     }
 
-    /**
-     * Flyway 데이터베이스 마이그레이션 설정
-     */
+    // Flyway 데이터베이스 마이그레이션 설정
     @Bean(initMethod = "migrate")
     public Flyway flyway(DataSource dataSource) {
 
@@ -95,12 +79,8 @@ public class RootConfig {
                 .load();
     }
 
-    /**
-     * MyBatis SqlSessionFactory 설정
-     *
-     * Flyway 매개변수를 받아 Flyway 마이그레이션 이후
-     * SqlSessionFactory가 생성되도록 순서를 보장한다.
-     */
+    // MyBatis SqlSessionFactory 설정
+    // Flyway 마이그레이션 이후 SqlSessionFactory가 생성되도록 순서를 보장
     @Bean
     public SqlSessionFactory sqlSessionFactory(
             DataSource dataSource,
@@ -127,9 +107,7 @@ public class RootConfig {
         return factoryBean.getObject();
     }
 
-    /**
-     * 트랜잭션 관리자 설정
-     */
+    // 트랜잭션 관리자 설정
     @Bean
     public DataSourceTransactionManager transactionManager(
             DataSource dataSource

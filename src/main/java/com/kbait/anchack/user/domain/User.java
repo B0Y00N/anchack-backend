@@ -1,110 +1,59 @@
 package com.kbait.anchack.user.domain;
 
-<<<<<<< HEAD
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-/**
- * users 테이블 매핑 (로컬/카카오 회원 공용)
- */
 @Getter
 @Setter
-public class User implements Serializable {
-
-    private Long id;
-    private String email;
-    private String password;
-    private String name;
-    private String nickname;
-    private LocalDate birthDate;
-    private String gender;
-    private String profileImageUrl;
-    private String provider;
-    private String providerId;
-    private String status;
-    private String role;
-    private LocalDateTime lastLoginAt;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private LocalDateTime deletedAt;
-}
-=======
-import java.io.Serializable;
-import java.time.LocalDate;
-
+@NoArgsConstructor
 public class User implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    // 사용자 ID
     private Long id;
-    private String provider;
-    private String providerId;
-    private String nickname;
-    private String profileImage;
+
+    // 이메일
     private String email;
+
+    // 비밀번호
+    private String password;
+
+    // 이름
+    private String name;
+
+    // 닉네임
+    private String nickname;
+
+    // 생년월일
     private LocalDate birthDate;
 
-    public User() {
-    }
+    // 성별
+    private String gender;
 
-    public Long getId() {
-        return id;
-    }
+    // 프로필 이미지 URL
+    private String profileImageUrl;
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    // 회원 상태
+    private String status;
 
-    public String getProvider() {
-        return provider;
-    }
+    // 권한
+    private String role;
 
-    public void setProvider(String provider) {
-        this.provider = provider;
-    }
+    // 마지막 로그인 시간
+    private LocalDateTime lastLoginAt;
 
-    public String getProviderId() {
-        return providerId;
-    }
+    // 생성일
+    private LocalDateTime createdAt;
 
-    public void setProviderId(String providerId) {
-        this.providerId = providerId;
-    }
+    // 수정일
+    private LocalDateTime updatedAt;
 
-    public String getNickname() {
-        return nickname;
-    }
-
-    public void setNickname(String nickname) {
-        this.nickname = nickname;
-    }
-
-    public String getProfileImage() {
-        return profileImage;
-    }
-
-    public void setProfileImage(String profileImage) {
-        this.profileImage = profileImage;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public LocalDate getBirthDate() {
-        return birthDate;
-    }
-
-    public void setBirthDate(LocalDate birthDate) {
-        this.birthDate = birthDate;
-    }
+    // 삭제일(탈퇴)
+    private LocalDateTime deletedAt;
 }
->>>>>>> feat/kakao-login
