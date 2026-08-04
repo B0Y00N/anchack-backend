@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.user.mapper.UserMapper">
+
+    <resultMap id="userResultMap"
+               type="com.kbait.anchack.user.domain.User">
+
+        <id property="id"
+            column="user_id"/>
+
+        <result property="provider"
+                column="provider"/>
+
+        <result property="providerId"
+                column="provider_id"/>
+
+        <result property="nickname"
+                column="nickname"/>
+
+        <result property="profileImage"
+                column="profile_image_url"/>
+
+        <result property="email"
+                column="email"/>
+
+        <result property="birthDate"
+                column="birth_date"/>
+
+    </resultMap>
+
+    <select id="findByProviderAndProviderId"
+            resultMap="userResultMap">
+
+        SELECT
+        user_id,
+        provider,
+        provider_id,
+        nickname,
+        profile_image_url,
+        email,
+        birth_date
+        FROM users
+        WHERE provider = #{provider}
+        AND provider_id = #{providerId}
+
+    </select>
+
+    <select id="findById"
+            resultMap="userResultMap">
+
+        SELECT
+        user_id,
+        provider,
+        provider_id,
+        nickname,
+        profile_image_url,
+        email,
+        birth_date
+        FROM users
+        WHERE user_id = #{id}
+
+    </select>
+
+    <insert id="insert"
+            parameterType="com.kbait.anchack.user.domain.User"
+            useGeneratedKeys="true"
+            keyProperty="id"
+            keyColumn="user_id">
+
+        INSERT INTO users (
+        provider,
+        provider_id,
+        nickname,
+        profile_image_url,
+        email,
+        birth_date,
+        created_at,
+        updated_at,
+        last_login_at
+        )
+        VALUES (
+        #{provider},
+        #{providerId},
+        #{nickname},
+        #{profileImage},
+        #{email},
+        #{birthDate},
+        NOW(),
+        NOW(),
+        NOW()
+        )
+
+    </insert>
+
+    <update id="updateProfile"
+            parameterType="com.kbait.anchack.user.domain.User">
+
+        UPDATE users
+        SET nickname = #{nickname},
+        profile_image_url = #{profileImage},
+        updated_at = NOW()
+        WHERE user_id = #{id}
+
+    </update>
+
+    <update id="updateSocialProfile"
+            parameterType="com.kbait.anchack.user.domain.User">
+
+        UPDATE users
+        SET nickname = #{nickname},
+        profile_image_url = #{profileImage},
+        email = #{email},
+        birth_date = #{birthDate},
+        updated_at = NOW()
+        WHERE provider = #{provider}
+        AND provider_id = #{providerId}
+
+    </update>
+
+    <update id="updateLastLoginAt">
+
+        UPDATE users
+        SET last_login_at = NOW()
+        WHERE user_id = #{id}
+
+    </update>
+
+</mapper>

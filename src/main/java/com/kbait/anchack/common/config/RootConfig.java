@@ -1,4 +1,4 @@
-package com.kbait.anchack.config;
+package com.kbait.anchack.common.config;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -6,14 +6,12 @@ import org.apache.ibatis.session.SqlSessionFactory;
 import org.flywaydb.core.Flyway;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.annotation.MapperScan;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
@@ -24,27 +22,49 @@ import javax.sql.DataSource;
         value = "classpath:application.properties",
         encoding = "UTF-8"
 )
+<<<<<<< HEAD:src/main/java/com/kbait/anchack/config/RootConfig.java
 @MapperScan("com.kbait.anchack.*.mapper")
 @ComponentScan(basePackages = {
         "com.kbait.anchack.*.service",
         "com.kbait.anchack.*.mapper"
+=======
+@MapperScan({
+        "com.kbait.anchack.auth.mapper",
+        "com.kbait.anchack.user.mapper"
+})
+@ComponentScan(basePackages = {
+        "com.kbait.anchack.auth.service",
+        "com.kbait.anchack.user.service",
+        "com.kbait.anchack.common.security"
+>>>>>>> feat/kakao-login:src/main/java/com/kbait/anchack/common/config/RootConfig.java
 })
 @EnableTransactionManagement
 public class RootConfig {
 
-    @Autowired
-    ApplicationContext applicationContext;
     @Value("${jdbc.driver}")
     private String driver;
+
     @Value("${jdbc.url}")
     private String url;
+
     @Value("${jdbc.username}")
     private String username;
+
     @Value("${jdbc.password}")
     private String password;
 
+    private final ApplicationContext applicationContext;
+
+    public RootConfig(ApplicationContext applicationContext) {
+        this.applicationContext = applicationContext;
+    }
+
+    /**
+     * HikariCP DataSource 설정
+     */
     @Bean
     public DataSource dataSource() {
+
         HikariConfig config = new HikariConfig();
 
         config.setDriverClassName(driver);
@@ -52,48 +72,68 @@ public class RootConfig {
         config.setUsername(username);
         config.setPassword(password);
 
-        HikariDataSource dataSource = new HikariDataSource(config);
-        return dataSource;
+        config.setMaximumPoolSize(10);
+        config.setMinimumIdle(2);
+        config.setConnectionTimeout(30000);
+        config.setIdleTimeout(600000);
+        config.setMaxLifetime(1800000);
+
+        return new HikariDataSource(config);
     }
 
+    /**
+     * Flyway 데이터베이스 마이그레이션 설정
+     */
     @Bean(initMethod = "migrate")
     public Flyway flyway(DataSource dataSource) {
+
         return Flyway.configure()
                 .dataSource(dataSource)
                 .baselineOnMigrate(true)
-                .baselineVersion("0")  // 2. 추가: V1 스크립트가 실행될 수 있도록 기준점을 0으로 설정
+                .baselineVersion("0")
                 .locations("classpath:db/migration")
                 .load();
     }
 
+    /**
+     * MyBatis SqlSessionFactory 설정
+     *
+     * Flyway 매개변수를 받아 Flyway 마이그레이션 이후
+     * SqlSessionFactory가 생성되도록 순서를 보장한다.
+     */
     @Bean
-    public SqlSessionFactory sqlSessionFactory(Flyway flyway) throws Exception {
-        SqlSessionFactoryBean sqlSessionFactory = new SqlSessionFactoryBean();
-        sqlSessionFactory.setConfigLocation(
+    public SqlSessionFactory sqlSessionFactory(
+            DataSource dataSource,
+            Flyway flyway
+    ) throws Exception {
+
+        SqlSessionFactoryBean factoryBean =
+                new SqlSessionFactoryBean();
+
+        factoryBean.setDataSource(dataSource);
+
+        factoryBean.setConfigLocation(
                 applicationContext.getResource(
                         "classpath:mybatis-config.xml"
                 )
         );
 
-        sqlSessionFactory.setMapperLocations(
+        factoryBean.setMapperLocations(
                 applicationContext.getResources(
                         "classpath*:mappers/**/*.xml"
                 )
         );
-        sqlSessionFactory.setDataSource(dataSource());
 
-        return sqlSessionFactory.getObject();
+        return factoryBean.getObject();
     }
 
+    /**
+     * 트랜잭션 관리자 설정
+     */
     @Bean
-    public DataSourceTransactionManager transactionManager() {
-        return new DataSourceTransactionManager(dataSource());
+    public DataSourceTransactionManager transactionManager(
+            DataSource dataSource
+    ) {
+        return new DataSourceTransactionManager(dataSource);
     }
-
-    @Bean
-    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
-        return new JdbcTemplate(dataSource);
-    }
-
-
 }
