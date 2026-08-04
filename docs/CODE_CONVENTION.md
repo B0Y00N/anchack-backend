@@ -211,24 +211,7 @@ void 존재하지_않는_리뷰를_수정하면_예외가_발생한다() {
 
 ## 12. 보류 중인 결정
 
-- **인증·인가 방식(세션 / JWT) 미정.** 결정 후 인증 사용자 정보를 Controller에 전달하는 방식과 401·403 응답 형식을 9장에 추가합니다.
-- **컴포넌트 스캔·MapperScan 변경 미적용.** 현재 `RootConfig`는 `com.kbait.anchack.service`, `ServletConfig`는 `com.kbait.anchack.controller`만 스캔하므로 2장의 구조를 지금 적용하면 빈이 등록되지 않습니다. 별도 PR에서 처리하며, 그때 `common/exception`의 `@RestControllerAdvice` 등록 여부도 함께 확인합니다.
-
-## 13. PR 전 확인사항
-
-공통 항목은 [CONTRIBUTING.md](https://github.com/kb-a-it/.github/blob/main/CONTRIBUTING.md) 5장을 확인하고, 여기서는 Java·Spring 항목만 봅니다.
-
-- [ ] Controller가 Service 인터페이스에 의존하고 Mapper를 직접 호출하지 않습니다.
-- [ ] `@Transactional`을 구현체에 선언했습니다.
-- [ ] 요청 DTO와 응답 DTO를 구분했고 응답을 `ApiResponse`로 감쌌습니다.
-- [ ] `@Data`를 쓰지 않았고, MyBatis 매핑 클래스에 `@NoArgsConstructor`가 있습니다.
-- [ ] `SELECT *`와 사용자 입력값 `${}`를 쓰지 않았습니다.
-- [ ] 반복문 안에서 DB를 반복 호출하지 않습니다.
-- [ ] 빈 `catch`가 없고 `ErrorCode`에 정의된 예외를 사용했습니다.
-- [ ] 권한과 소유권을 서버에서 검증했습니다.
-- [ ] 핵심 로직의 단위 테스트를 작성했습니다.
-
-## 14. 결정 기록
+## 13. 결정 기록
 
 논의 과정에서 대안을 검토하고 확정한 것만 기록합니다. 미정인 항목은 12장에 둡니다.
 
