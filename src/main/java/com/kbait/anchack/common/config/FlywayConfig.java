@@ -1,4 +1,4 @@
-package com.kbait.anchack.config;
+package com.kbait.anchack.common.config;
 
 import javax.sql.DataSource;
 

@@ -1,20 +1,17 @@
-package com.kbait.anchack.config;
+package com.kbait.anchack.common.config;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.annotation.MapperScan;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
@@ -24,22 +21,17 @@ import javax.sql.DataSource;
         value = "classpath:application.properties",
         encoding = "UTF-8"
 )
-@MapperScan("com.kbait.anchack.mapper")
+@MapperScan({
+        "com.kbait.anchack.auth.mapper",
+        "com.kbait.anchack.user.mapper"
+})
 @ComponentScan(basePackages = {
-        "com.kbait.anchack.service",
-        "com.kbait.anchack.repository"
+        "com.kbait.anchack.auth.service",
+        "com.kbait.anchack.user.service",
+        "com.kbait.anchack.common.security"
 })
 @EnableTransactionManagement
 public class RootConfig {
-
-//    @Value("${jdbc.driver}")
-//    String driver;
-//    @Value("${jdbc.url}")
-//    String url;
-//    @Value("${jdbc.username}")
-//    String username;
-//    @Value("${jdbc.password}")
-//    String password;
 
     @Value("${jdbc.driver}")
     private String driver;
@@ -53,11 +45,18 @@ public class RootConfig {
     @Value("${jdbc.password}")
     private String password;
 
-    @Autowired
-    ApplicationContext applicationContext;
+    private final ApplicationContext applicationContext;
 
+    public RootConfig(ApplicationContext applicationContext) {
+        this.applicationContext = applicationContext;
+    }
+
+    /**
+     * HikariCP DataSource 설정
+     */
     @Bean
     public DataSource dataSource() {
+
         HikariConfig config = new HikariConfig();
 
         config.setDriverClassName(driver);
@@ -65,38 +64,51 @@ public class RootConfig {
         config.setUsername(username);
         config.setPassword(password);
 
-        HikariDataSource dataSource = new HikariDataSource(config);
-        return dataSource;
+        // 커넥션 풀 설정
+        config.setMaximumPoolSize(10);
+        config.setMinimumIdle(2);
+        config.setConnectionTimeout(30000);
+        config.setIdleTimeout(600000);
+        config.setMaxLifetime(1800000);
+
+        return new HikariDataSource(config);
     }
 
+    /**
+     * MyBatis SqlSessionFactory 설정
+     */
     @Bean
-    public SqlSessionFactory sqlSessionFactory() throws Exception {
-        SqlSessionFactoryBean sqlSessionFactory = new SqlSessionFactoryBean();
-        sqlSessionFactory.setConfigLocation(
+    public SqlSessionFactory sqlSessionFactory(
+            DataSource dataSource
+    ) throws Exception {
+
+        SqlSessionFactoryBean factoryBean =
+                new SqlSessionFactoryBean();
+
+        factoryBean.setDataSource(dataSource);
+
+        factoryBean.setConfigLocation(
                 applicationContext.getResource(
                         "classpath:mybatis-config.xml"
                 )
         );
 
-        sqlSessionFactory.setMapperLocations(
+        factoryBean.setMapperLocations(
                 applicationContext.getResources(
-                        "classpath*:mappers/**/*.xml"
+                        "classpath*:mapper/**/*.xml"
                 )
         );
-        sqlSessionFactory.setDataSource(dataSource());
 
-        return sqlSessionFactory.getObject();
+        return factoryBean.getObject();
     }
 
+    /**
+     * 트랜잭션 관리자 설정
+     */
     @Bean
-    public DataSourceTransactionManager transactionManager() {
-        return new DataSourceTransactionManager(dataSource());
+    public DataSourceTransactionManager transactionManager(
+            DataSource dataSource
+    ) {
+        return new DataSourceTransactionManager(dataSource);
     }
-
-    @Bean
-    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
-        return new JdbcTemplate(dataSource);
-    }
-
-
 }
