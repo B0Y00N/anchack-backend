@@ -1,14 +1,13 @@
 package com.kbait.anchack.auth.controller;
 
+import com.kbait.anchack.auth.domain.AuthUser;
 import com.kbait.anchack.auth.dto.KakaoUserInfo;
 import com.kbait.anchack.auth.service.KakaoAuthService;
 import com.kbait.anchack.common.security.JwtAuthenticationFilter;
 import com.kbait.anchack.common.security.JwtTokenProvider;
-import com.kbait.anchack.user.domain.User;
 import com.kbait.anchack.user.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -51,7 +50,6 @@ public class AuthController {
     public ResponseEntity<?> kakaoLogin(
             @RequestBody(required = false) CodeRequest request
     ) {
-        // [수정] 컨트롤러 진입 여부 확인
         System.out.println();
         System.out.println("========================================");
         System.out.println("[AuthController] 카카오 로그인 요청 시작");
@@ -76,10 +74,13 @@ public class AuthController {
         try {
             String code = request.getCode().trim();
 
-            // [수정] 인가 코드 원문은 출력하지 않고 존재 여부와 길이만 출력
+            /*
+             * 1단계: 카카오 인가 코드 확인
+             */
             System.out.println(
                     "[1단계] 카카오 인가 코드 확인 완료"
             );
+
             System.out.println(
                     "[1단계] 인가 코드 길이: " + code.length()
             );
@@ -114,7 +115,9 @@ public class AuthController {
             );
 
             KakaoUserInfo kakaoUserInfo =
-                    kakaoAuthService.getUserInfo(kakaoAccessToken);
+                    kakaoAuthService.getUserInfo(
+                            kakaoAccessToken
+                    );
 
             if (kakaoUserInfo == null) {
                 throw new IllegalStateException(
@@ -131,38 +134,43 @@ public class AuthController {
             System.out.println(
                     "[3단계] 카카오 사용자 정보 조회 완료"
             );
+
             System.out.println(
                     "[3단계] 카카오 사용자 ID: "
                             + kakaoUserInfo.getId()
             );
 
             /*
-             * 4단계: 사용자 저장 또는 갱신
+             * 4단계: 인증 사용자 저장 또는 갱신
              */
             System.out.println(
-                    "[4단계] users 테이블 사용자 저장 또는 갱신 시작"
+                    "[4단계] users 테이블 인증 사용자 저장 또는 갱신 시작"
             );
 
-            User user =
-                    userService.saveOrUpdate(kakaoUserInfo);
+            AuthUser authUser =
+                    userService.saveOrUpdate(
+                            kakaoUserInfo
+                    );
 
-            if (user == null) {
+            if (authUser == null) {
                 throw new IllegalStateException(
                         "UserService 결과가 null입니다."
                 );
             }
 
-            if (user.getId() == null) {
+            if (authUser.getId() == null) {
                 throw new IllegalStateException(
                         "저장 또는 조회된 사용자의 user_id가 null입니다."
                 );
             }
 
             System.out.println(
-                    "[4단계] 사용자 저장 또는 갱신 완료"
+                    "[4단계] 인증 사용자 저장 또는 갱신 완료"
             );
+
             System.out.println(
-                    "[4단계] 서비스 사용자 ID: " + user.getId()
+                    "[4단계] 서비스 사용자 ID: "
+                            + authUser.getId()
             );
 
             /*
@@ -173,7 +181,9 @@ public class AuthController {
             );
 
             String accessToken =
-                    jwtTokenProvider.generateToken(user);
+                    jwtTokenProvider.generateToken(
+                            authUser
+                    );
 
             if (accessToken == null
                     || accessToken.trim().isEmpty()) {
@@ -190,29 +200,45 @@ public class AuthController {
             Map<String, Object> responseBody =
                     new LinkedHashMap<>();
 
-            responseBody.put("user", user);
-            responseBody.put("accessToken", accessToken);
-            responseBody.put("tokenType", "Bearer");
+            responseBody.put(
+                    "user",
+                    authUser
+            );
+
+            responseBody.put(
+                    "accessToken",
+                    accessToken
+            );
+
+            responseBody.put(
+                    "tokenType",
+                    "Bearer"
+            );
 
             System.out.println(
                     "[AuthController] 카카오 로그인 처리 성공"
             );
+
             System.out.println(
                     "========================================"
             );
 
-            return ResponseEntity.ok(responseBody);
+            return ResponseEntity.ok(
+                    responseBody
+            );
 
         } catch (HttpStatusCodeException e) {
-            // [수정] 카카오 API 오류도 전체 스택 트레이스 출력
             System.err.println();
+
             System.err.println(
                     "[AuthController] 카카오 API 요청 실패"
             );
+
             System.err.println(
                     "HTTP 상태 코드: "
                             + e.getStatusCode().value()
             );
+
             System.err.println(
                     "카카오 응답 본문: "
                             + e.getResponseBodyAsString()
@@ -236,7 +262,6 @@ public class AuthController {
                     e.getResponseBodyAsString()
             );
 
-            // [수정] 개발 중 원인 확인용
             responseBody.put(
                     "exception",
                     e.getClass().getName()
@@ -247,16 +272,20 @@ public class AuthController {
                     .body(responseBody);
 
         } catch (IllegalArgumentException e) {
-            // [수정] IllegalArgumentException도 로그 출력
             System.err.println();
+
             System.err.println(
                     "[AuthController] 잘못된 로그인 요청"
             );
+
             System.err.println(
-                    "예외 타입: " + e.getClass().getName()
+                    "예외 타입: "
+                            + e.getClass().getName()
             );
+
             System.err.println(
-                    "예외 메시지: " + getExceptionMessage(e)
+                    "예외 메시지: "
+                            + getExceptionMessage(e)
             );
 
             e.printStackTrace();
@@ -267,7 +296,6 @@ public class AuthController {
                             getExceptionMessage(e)
                     );
 
-            // [수정] 개발 중 원인 확인용
             responseBody.put(
                     "exception",
                     e.getClass().getName()
@@ -278,20 +306,26 @@ public class AuthController {
                     .body(responseBody);
 
         } catch (Exception e) {
-            // [수정] 어떤 단계에서 어떤 예외가 발생했는지 명확히 출력
             System.err.println();
+
             System.err.println(
                     "========================================"
             );
+
             System.err.println(
                     "[AuthController] 로그인 처리 중 예외 발생"
             );
+
             System.err.println(
-                    "예외 타입: " + e.getClass().getName()
+                    "예외 타입: "
+                            + e.getClass().getName()
             );
+
             System.err.println(
-                    "예외 메시지: " + getExceptionMessage(e)
+                    "예외 메시지: "
+                            + getExceptionMessage(e)
             );
+
             System.err.println(
                     "========================================"
             );
@@ -305,11 +339,8 @@ public class AuthController {
                     );
 
             /*
-             * [수정]
-             * 현재는 로컬 개발 중이므로 프론트에서 원인을 확인할 수 있게
-             * 예외 타입과 메시지를 응답에 포함한다.
-             *
-             * 실제 운영 배포 시에는 exception, detail 필드를 제거해야 한다.
+             * 로컬 개발 중 원인 확인용.
+             * 운영 배포 시 exception, detail 필드는 제거하는 것이 좋다.
              */
             responseBody.put(
                     "exception",
@@ -328,7 +359,7 @@ public class AuthController {
     }
 
     /**
-     * JWT 인증된 현재 사용자 조회
+     * JWT 인증된 현재 인증 사용자 조회
      */
     @GetMapping("/me")
     public ResponseEntity<?> me(
@@ -350,7 +381,9 @@ public class AuthController {
             }
 
             Long userId =
-                    convertToUserId(userIdAttribute);
+                    convertToUserId(
+                            userIdAttribute
+                    );
 
             if (userId == null) {
                 return ResponseEntity
@@ -362,14 +395,16 @@ public class AuthController {
             }
 
             System.out.println(
-                    "[AuthController] 현재 사용자 조회 ID: "
+                    "[AuthController] 현재 인증 사용자 조회 ID: "
                             + userId
             );
 
-            User user =
-                    userService.findById(userId);
+            AuthUser authUser =
+                    userService.findById(
+                            userId
+                    );
 
-            if (user == null) {
+            if (authUser == null) {
                 return ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
                         .body(createErrorResponse(
@@ -378,18 +413,23 @@ public class AuthController {
                         ));
             }
 
-            return ResponseEntity.ok(user);
+            return ResponseEntity.ok(
+                    authUser
+            );
 
         } catch (Exception e) {
-            // [수정] /me 요청 중 DB 또는 MyBatis 오류 확인
             System.err.println(
-                    "[AuthController] 현재 사용자 조회 실패"
+                    "[AuthController] 현재 인증 사용자 조회 실패"
             );
+
             System.err.println(
-                    "예외 타입: " + e.getClass().getName()
+                    "예외 타입: "
+                            + e.getClass().getName()
             );
+
             System.err.println(
-                    "예외 메시지: " + getExceptionMessage(e)
+                    "예외 메시지: "
+                            + getExceptionMessage(e)
             );
 
             e.printStackTrace();
@@ -400,7 +440,6 @@ public class AuthController {
                             "사용자 조회 중 오류가 발생했습니다."
                     );
 
-            // [수정] 로컬 개발 확인용
             responseBody.put(
                     "exception",
                     e.getClass().getName()
@@ -420,8 +459,8 @@ public class AuthController {
     /**
      * JWT 로그아웃
      *
-     * 서버에서 별도로 Access Token을 저장하지 않는 구조라면
-     * 클라이언트 localStorage의 Access Token을 삭제하면 된다.
+     * 서버에서 Access Token을 별도로 저장하지 않는 구조라면
+     * 클라이언트의 localStorage에서 Access Token을 삭제한다.
      */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout() {
@@ -434,6 +473,9 @@ public class AuthController {
                 .build();
     }
 
+    /**
+     * JWT 필터에서 전달된 사용자 ID를 Long 타입으로 변환한다.
+     */
     private Long convertToUserId(
             Object userIdAttribute
     ) {
@@ -442,14 +484,17 @@ public class AuthController {
         }
 
         if (userIdAttribute instanceof Number) {
-            return ((Number) userIdAttribute).longValue();
+            return ((Number) userIdAttribute)
+                    .longValue();
         }
 
         if (userIdAttribute instanceof String) {
             try {
                 return Long.valueOf(
-                        ((String) userIdAttribute).trim()
+                        ((String) userIdAttribute)
+                                .trim()
                 );
+
             } catch (NumberFormatException e) {
                 return null;
             }
@@ -458,6 +503,9 @@ public class AuthController {
         return null;
     }
 
+    /**
+     * 공통 오류 응답을 생성한다.
+     */
     private Map<String, Object> createErrorResponse(
             String code,
             String message
@@ -465,16 +513,22 @@ public class AuthController {
         Map<String, Object> response =
                 new LinkedHashMap<>();
 
-        response.put("code", code);
-        response.put("message", message);
+        response.put(
+                "code",
+                code
+        );
+
+        response.put(
+                "message",
+                message
+        );
 
         return response;
     }
 
     /**
-     * [수정]
-     * 예외 메시지가 null 또는 빈 문자열일 때
-     * 예외 클래스의 이름을 대신 반환한다.
+     * 예외 메시지가 null 또는 빈 문자열이면
+     * 예외 클래스 이름을 반환한다.
      */
     private String getExceptionMessage(
             Exception e
@@ -482,12 +536,16 @@ public class AuthController {
         if (e.getMessage() == null
                 || e.getMessage().trim().isEmpty()) {
 
-            return e.getClass().getSimpleName();
+            return e.getClass()
+                    .getSimpleName();
         }
 
         return e.getMessage();
     }
 
+    /**
+     * 카카오 인가 코드 요청 DTO
+     */
     public static class CodeRequest {
 
         private String code;
@@ -499,8 +557,11 @@ public class AuthController {
             return code;
         }
 
-        public void setCode(String code) {
+        public void setCode(
+                String code
+        ) {
             this.code = code;
         }
     }
 }
+

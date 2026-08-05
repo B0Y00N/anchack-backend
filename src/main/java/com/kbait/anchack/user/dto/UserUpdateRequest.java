@@ -6,6 +6,7 @@ public class UserUpdateRequest {
 
     private String nickname;
     private LocalDate birthDate;
+    private String profileImageUrl;
 
     public UserUpdateRequest() {
     }
@@ -14,7 +15,9 @@ public class UserUpdateRequest {
         return nickname;
     }
 
-    public void setNickname(String nickname) {
+    public void setNickname(
+            String nickname
+    ) {
         this.nickname = nickname;
     }
 
@@ -22,7 +25,19 @@ public class UserUpdateRequest {
         return birthDate;
     }
 
-    public void setBirthDate(LocalDate birthDate) {
+    public void setBirthDate(
+            LocalDate birthDate
+    ) {
         this.birthDate = birthDate;
+    }
+
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
+
+    public void setProfileImageUrl(
+            String profileImageUrl
+    ) {
+        this.profileImageUrl = profileImageUrl;
     }
 }

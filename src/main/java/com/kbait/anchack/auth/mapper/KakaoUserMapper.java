@@ -1,20 +1,24 @@
 package com.kbait.anchack.auth.mapper;
 
-import com.kbait.anchack.user.domain.User;
+import com.kbait.anchack.auth.domain.AuthUser;
 import org.apache.ibatis.annotations.Param;
 
 public interface KakaoUserMapper {
 
-    User findByProviderAndProviderId(
+    AuthUser findByProviderAndProviderId(
             @Param("provider") String provider,
             @Param("providerId") String providerId
     );
 
-    User findById(@Param("id") Long id);
+    AuthUser findById(
+            @Param("id") Long id
+    );
 
-    int insert(User user);
+    int insert(AuthUser user);
 
-    int updateSocialProfile(User user);
+    int updateSocialProfile(AuthUser user);
 
-    int updateLastLoginAt(@Param("id") Long id);
+    int updateLastLoginAt(
+            @Param("id") Long id
+    );
 }

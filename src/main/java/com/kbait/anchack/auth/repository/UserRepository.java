@@ -1,6 +1,6 @@
-package com.kbait.anchack.repository;
+package com.kbait.anchack.auth.repository;
 
-import com.kbait.anchack.user.domain.User;
+import com.kbait.anchack.auth.domain.AuthUser;
 import com.kbait.anchack.auth.mapper.KakaoUserMapper;
 import org.springframework.stereotype.Repository;
 
@@ -13,7 +13,7 @@ public class UserRepository {
         this.userMapper = userMapper;
     }
 
-    public User findByProviderAndProviderId(
+    public AuthUser findByProviderAndProviderId(
             String provider,
             String providerId
     ) {
@@ -23,15 +23,15 @@ public class UserRepository {
         );
     }
 
-    public User findById(Long id) {
+    public AuthUser findById(Long id) {
         return userMapper.findById(id);
     }
 
-    public void insert(User user) {
+    public void insert(AuthUser user) {
         userMapper.insert(user);
     }
 
-    public void updateSocialProfile(User user) {
+    public void updateSocialProfile(AuthUser user) {
         userMapper.updateSocialProfile(user);
     }
 

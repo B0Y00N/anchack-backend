@@ -1,6 +1,6 @@
 package com.kbait.anchack.user.service;
 
-import com.kbait.anchack.user.domain.User;
+import com.kbait.anchack.auth.domain.AuthUser;
 import com.kbait.anchack.auth.dto.KakaoUserInfo;
 import com.kbait.anchack.auth.mapper.KakaoUserMapper;
 import org.springframework.stereotype.Service;
@@ -15,25 +15,25 @@ public class UserService {
 
     private final KakaoUserMapper kakaoUserMapper;
 
-    public UserService(KakaoUserMapper kakaoUserMapper) {
+    public UserService(
+            KakaoUserMapper kakaoUserMapper
+    ) {
         this.kakaoUserMapper = kakaoUserMapper;
     }
 
-    /**
-     * 카카오 로그인 사용자를 조회한다.
-     *
-     * 신규 사용자면 users 테이블에 등록하고,
-     * 기존 사용자면 카카오 프로필 정보와 마지막 로그인 시간을 갱신한다.
-     */
+    // 카카오 로그인 사용자를 조회한다.
+    // 신규 사용자면 users 테이블에 등록한다.
+    // 기존 사용자면 카카오 프로필 정보와 마지막 로그인 시간을 갱신한다.
     @Transactional
-    public User saveOrUpdate(KakaoUserInfo userInfo) {
-
+    public AuthUser saveOrUpdate(
+            KakaoUserInfo userInfo
+    ) {
         validateKakaoUserInfo(userInfo);
 
         String providerId =
                 String.valueOf(userInfo.getId());
 
-        User existingUser =
+        AuthUser existingUser =
                 kakaoUserMapper.findByProviderAndProviderId(
                         KAKAO_PROVIDER,
                         providerId
@@ -52,14 +52,12 @@ public class UserService {
         );
     }
 
-    /**
-     * 사용자 PK로 사용자 정보를 조회한다.
-     *
-     * JWT 인증 완료 후 /api/auth/me에서 사용한다.
-     */
+    // 사용자 PK로 인증 사용자 정보를 조회한다.
+    // JWT 인증 완료 후 현재 로그인 사용자 조회에 사용한다.
     @Transactional(readOnly = true)
-    public User findById(Long userId) {
-
+    public AuthUser findById(
+            Long userId
+    ) {
         if (userId == null) {
             return null;
         }
@@ -67,14 +65,12 @@ public class UserService {
         return kakaoUserMapper.findById(userId);
     }
 
-    /**
-     * 신규 카카오 사용자를 등록한다.
-     */
-    private User createKakaoUser(
+    // 신규 카카오 사용자를 등록한다.
+    private AuthUser createKakaoUser(
             KakaoUserInfo userInfo,
             String providerId
     ) {
-        User user = new User();
+        AuthUser user = new AuthUser();
 
         user.setProvider(KAKAO_PROVIDER);
         user.setProviderId(providerId);
@@ -100,8 +96,10 @@ public class UserService {
             );
         }
 
-        User savedUser =
-                kakaoUserMapper.findById(user.getId());
+        AuthUser savedUser =
+                kakaoUserMapper.findById(
+                        user.getId()
+                );
 
         if (savedUser == null) {
             throw new IllegalStateException(
@@ -112,12 +110,9 @@ public class UserService {
         return savedUser;
     }
 
-    /**
-     * 기존 카카오 사용자의 소셜 프로필과
-     * 마지막 로그인 시간을 갱신한다.
-     */
-    private User updateKakaoUser(
-            User existingUser,
+    // 기존 카카오 사용자의 프로필과 마지막 로그인 시간을 갱신한다.
+    private AuthUser updateKakaoUser(
+            AuthUser existingUser,
             KakaoUserInfo userInfo
     ) {
         existingUser.setNickname(
@@ -158,7 +153,7 @@ public class UserService {
             );
         }
 
-        User updatedUser =
+        AuthUser updatedUser =
                 kakaoUserMapper.findById(
                         existingUser.getId()
                 );
@@ -172,9 +167,7 @@ public class UserService {
         return updatedUser;
     }
 
-    /**
-     * 카카오 사용자 정보의 필수값을 검증한다.
-     */
+    // 카카오 사용자 정보의 필수값을 검증한다.
     private void validateKakaoUserInfo(
             KakaoUserInfo userInfo
     ) {
@@ -191,14 +184,8 @@ public class UserService {
         }
     }
 
-    /**
-     * KakaoUserInfo의 생년월일을 LocalDate로 변환한다.
-     *
-     * birthDate가 이미 설정되어 있으면 해당 값을 우선 사용한다.
-     *
-     * birthYear 예시: "2026"
-     * birthday 예시: "0804"
-     */
+    // 카카오 사용자 정보의 생년월일을 LocalDate로 변환한다.
+    // birthDate가 존재하면 해당 값을 우선 사용한다.
     private LocalDate convertToBirthDate(
             KakaoUserInfo userInfo
     ) {

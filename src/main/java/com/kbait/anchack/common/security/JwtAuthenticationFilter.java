@@ -16,17 +16,24 @@ import java.util.List;
 
 public class JwtAuthenticationFilter implements Filter {
 
-    public static final String USER_ID_ATTRIBUTE = "AUTH_USER_ID";
+    public static final String USER_ID_ATTRIBUTE =
+            "AUTH_USER_ID";
 
-    private static final List<String> WHITELIST = Arrays.asList(
-            "/",
-            "/api/auth/kakao/callback"
-    );
+    // JWT 인증 없이 접근할 수 있는 경로
+    private static final List<String> WHITELIST =
+            Arrays.asList(
+                    "/",
+                    "/api/auth/kakao/callback"
+            );
 
     private JwtTokenProvider jwtTokenProvider;
 
     @Override
-    public void init(FilterConfig filterConfig) throws ServletException {
+    public void init(
+            FilterConfig filterConfig
+    ) throws ServletException {
+
+        // Spring이 관리하는 JwtTokenProvider Bean을 가져온다.
         this.jwtTokenProvider =
                 WebApplicationContextUtils
                         .getRequiredWebApplicationContext(
@@ -48,124 +55,120 @@ public class JwtAuthenticationFilter implements Filter {
         HttpServletResponse response =
                 (HttpServletResponse) res;
 
-        String method = request.getMethod();
-        String uri = getRequestPath(request);
-
-        /*
-         * CORS 사전 요청은 토큰 검사 없이 통과
-         */
-        if ("OPTIONS".equalsIgnoreCase(method)) {
-            chain.doFilter(req, res);
+        // CORS 사전 요청은 JWT 인증 없이 통과시킨다.
+        // CORS 응답 헤더는 WebConfig의 CorsFilter가 처리한다.
+        if ("OPTIONS".equalsIgnoreCase(
+                request.getMethod()
+        )) {
+            chain.doFilter(request, response);
             return;
         }
 
-        /*
-         * 로그인 콜백 등 공개 경로 통과
-         */
-        if (WHITELIST.contains(uri)) {
-            chain.doFilter(req, res);
+        String requestPath =
+                getRequestPath(request);
+
+        // 공개 경로는 JWT 인증 없이 Controller로 전달한다.
+        if (isWhitelisted(requestPath)) {
+            chain.doFilter(request, response);
             return;
         }
 
-        /*
-         * /api/** 이외 요청은 JWT 검사 대상이 아님
-         */
-        if (!uri.startsWith("/api/")) {
-            chain.doFilter(req, res);
-            return;
-        }
-
-        String authHeader =
+        String authorizationHeader =
                 request.getHeader("Authorization");
 
-        if (authHeader == null
-                || !authHeader.startsWith("Bearer ")) {
+        // Authorization 헤더가 없거나 Bearer 형식이 아니면
+        // 인증 실패 응답을 반환한다.
+        if (authorizationHeader == null
+                || !authorizationHeader.startsWith("Bearer ")) {
 
-            sendUnauthorized(
+            sendUnauthorizedResponse(
                     response,
-                    "AUTH_HEADER_MISSING",
-                    "Authorization 헤더가 없습니다."
+                    "인증 토큰이 없습니다."
             );
-
             return;
         }
 
         String token =
-                authHeader.substring("Bearer ".length()).trim();
+                authorizationHeader
+                        .substring(7)
+                        .trim();
 
         if (token.isEmpty()) {
-            sendUnauthorized(
+            sendUnauthorizedResponse(
                     response,
-                    "TOKEN_MISSING",
-                    "Access Token이 없습니다."
+                    "인증 토큰이 없습니다."
             );
-
             return;
         }
 
-        try {
-            if (!jwtTokenProvider.validateToken(token)) {
-                sendUnauthorized(
-                        response,
-                        "INVALID_TOKEN",
-                        "유효하지 않거나 만료된 토큰입니다."
-                );
+        Long userId;
 
+        try {
+            // JWT가 유효한지 검사한다.
+            if (!jwtTokenProvider.validateToken(token)) {
+                sendUnauthorizedResponse(
+                        response,
+                        "유효하지 않은 인증 토큰입니다."
+                );
                 return;
             }
 
-            Long userId =
+            // JWT에서 사용자 PK를 가져온다.
+            userId =
                     jwtTokenProvider.getUserId(token);
 
-            if (userId == null) {
-                sendUnauthorized(
-                        response,
-                        "INVALID_TOKEN_USER",
-                        "토큰의 사용자 정보가 유효하지 않습니다."
-                );
-
-                return;
-            }
-
-            request.setAttribute(
-                    USER_ID_ATTRIBUTE,
-                    userId
-            );
-
-            chain.doFilter(req, res);
-
         } catch (Exception e) {
-            sendUnauthorized(
+            sendUnauthorizedResponse(
                     response,
-                    "TOKEN_PROCESS_ERROR",
-                    "토큰 처리 중 오류가 발생했습니다."
+                    "만료되었거나 유효하지 않은 인증 토큰입니다."
             );
+            return;
         }
+
+        // Controller에서 사용할 수 있도록
+        // 인증된 사용자 PK를 request에 저장한다.
+        request.setAttribute(
+                USER_ID_ATTRIBUTE,
+                userId
+        );
+
+        chain.doFilter(request, response);
     }
 
+    // Context Path를 제외한 실제 요청 경로를 반환한다.
     private String getRequestPath(
             HttpServletRequest request
     ) {
+
         String requestUri =
                 request.getRequestURI();
 
         String contextPath =
                 request.getContextPath();
 
-        if (contextPath == null
-                || contextPath.isEmpty()) {
+        if (contextPath != null
+                && !contextPath.isEmpty()
+                && requestUri.startsWith(contextPath)) {
 
-            return requestUri;
+            return requestUri.substring(
+                    contextPath.length()
+            );
         }
 
-        return requestUri.substring(
-                contextPath.length()
-        );
+        return requestUri;
     }
 
-    private void sendUnauthorized(
+    // JWT 인증 없이 접근할 수 있는 경로인지 확인한다.
+    private boolean isWhitelisted(
+            String requestPath
+    ) {
+
+        return WHITELIST.contains(requestPath);
+    }
+
+    // JWT 인증 실패 응답을 반환한다.
+    private void sendUnauthorizedResponse(
             HttpServletResponse response,
-            String code,
             String message
     ) throws IOException {
 
@@ -179,11 +182,17 @@ public class JwtAuthenticationFilter implements Filter {
                 "application/json;charset=UTF-8"
         );
 
+        String escapedMessage =
+                message.replace("\"", "\\\"");
+
         response.getWriter().write(
-                "{"
-                        + "\"code\":\"" + code + "\","
-                        + "\"message\":\"" + message + "\""
-                        + "}"
+                "{\"message\":\""
+                        + escapedMessage
+                        + "\"}"
         );
+    }
+
+    @Override
+    public void destroy() {
     }
 }

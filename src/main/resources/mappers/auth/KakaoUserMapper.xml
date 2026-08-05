@@ -5,8 +5,8 @@
 
 <mapper namespace="com.kbait.anchack.auth.mapper.KakaoUserMapper">
 
-    <resultMap id="userResultMap"
-               type="com.kbait.anchack.user.domain.User">
+    <resultMap id="authUserResultMap"
+               type="com.kbait.anchack.auth.domain.AuthUser">
 
         <id property="id"
             column="user_id"/>
@@ -32,7 +32,7 @@
     </resultMap>
 
     <select id="findByProviderAndProviderId"
-            resultMap="userResultMap">
+            resultMap="authUserResultMap">
 
         SELECT
         user_id,
@@ -49,7 +49,7 @@
     </select>
 
     <select id="findById"
-            resultMap="userResultMap">
+            resultMap="authUserResultMap">
 
         SELECT
         user_id,
@@ -65,7 +65,7 @@
     </select>
 
     <insert id="insert"
-            parameterType="com.kbait.anchack.user.domain.User"
+            parameterType="com.kbait.anchack.auth.domain.AuthUser"
             useGeneratedKeys="true"
             keyProperty="id"
             keyColumn="user_id">
@@ -96,7 +96,7 @@
     </insert>
 
     <update id="updateSocialProfile"
-            parameterType="com.kbait.anchack.user.domain.User">
+            parameterType="com.kbait.anchack.auth.domain.AuthUser">
 
         UPDATE users
         SET nickname = #{nickname},

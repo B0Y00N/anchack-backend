@@ -54,6 +54,6 @@ public class User implements Serializable {
     // 수정일
     private LocalDateTime updatedAt;
 
-    // 삭제일(탈퇴)
+    // 삭제일
     private LocalDateTime deletedAt;
 }
