@@ -1,6 +1,8 @@
 package com.kbait.anchack.ingestion.config;
 
+import com.kbait.anchack.ingestion.client.MolitRentApiClient;
 import com.kbait.anchack.ingestion.parser.MolitRentXmlParser;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -37,5 +39,14 @@ public class MolitRentConfig {
     @Bean
     public MolitRentXmlParser molitRentXmlParser() {
         return new MolitRentXmlParser();
+    }
+
+    @Bean
+    public MolitRentApiClient molitRentApiClient(
+            @Qualifier("molitRestTemplate") RestTemplate molitRestTemplate,
+            MolitRentApiProperties properties,
+            MolitRentXmlParser parser
+    ) {
+        return new MolitRentApiClient(molitRestTemplate, properties, parser);
     }
 }
