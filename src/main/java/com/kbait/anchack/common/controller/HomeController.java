@@ -1,16 +1,24 @@
 package com.kbait.anchack.common.controller;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.CrossOrigin;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-@CrossOrigin(origins = "http://localhost:5173")
 @RestController
 public class HomeController {
 
     @GetMapping("/")
-    public String home() {
-        return "Spring OK";
+    public ResponseEntity<Map<String, Object>> home() {
+
+        Map<String, Object> response =
+                new LinkedHashMap<>();
+
+        response.put("message", "Anchack Backend API");
+        response.put("status", "running");
+
+        return ResponseEntity.ok(response);
     }
 }

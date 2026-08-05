@@ -5,18 +5,13 @@
 
 <configuration>
 
-    <!-- 설정 -->
     <settings>
-        <!-- user_name → userName 자동 매핑 -->
+        <!-- DB의 snake_case 컬럼을 Java의 camelCase 필드로 자동 매핑 -->
+        <!-- 예: provider_id → providerId -->
         <setting name="mapUnderscoreToCamelCase" value="true"/>
 
-        <!-- SQL 로그 출력 -->
+        <!-- MyBatis 실행 SQL을 콘솔에 출력 -->
         <setting name="logImpl" value="STDOUT_LOGGING"/>
     </settings>
-
-    <!-- 타입 별칭 -->
-    <typeAliases>
-        <package name="com.kbait.anchack.domain"/>
-    </typeAliases>
 
 </configuration>
