@@ -1,6 +1,7 @@
 package com.kbait.anchack.ingestion.config;
 
 import com.kbait.anchack.ingestion.client.MolitRentApiClient;
+import com.kbait.anchack.ingestion.normalizer.RentalTransactionNormalizer;
 import com.kbait.anchack.ingestion.parser.MolitRentXmlParser;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +40,11 @@ public class MolitRentConfig {
     @Bean
     public MolitRentXmlParser molitRentXmlParser() {
         return new MolitRentXmlParser();
+    }
+
+    @Bean
+    public RentalTransactionNormalizer rentalTransactionNormalizer() {
+        return new RentalTransactionNormalizer();
     }
 
     @Bean
