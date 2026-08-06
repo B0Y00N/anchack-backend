@@ -1,43 +1,17 @@
 package com.kbait.anchack.user.dto;
 
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.LocalDate;
 
+@Getter
+@Setter
+@NoArgsConstructor
 public class UserUpdateRequest {
 
     private String nickname;
     private LocalDate birthDate;
     private String profileImageUrl;
-
-    public UserUpdateRequest() {
-    }
-
-    public String getNickname() {
-        return nickname;
-    }
-
-    public void setNickname(
-            String nickname
-    ) {
-        this.nickname = nickname;
-    }
-
-    public LocalDate getBirthDate() {
-        return birthDate;
-    }
-
-    public void setBirthDate(
-            LocalDate birthDate
-    ) {
-        this.birthDate = birthDate;
-    }
-
-    public String getProfileImageUrl() {
-        return profileImageUrl;
-    }
-
-    public void setProfileImageUrl(
-            String profileImageUrl
-    ) {
-        this.profileImageUrl = profileImageUrl;
-    }
 }

@@ -9,8 +9,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 @EnableWebMvc
 @ComponentScan(basePackages = {
-        "com.kbait.anchack.common.*",
-        "com.kbait.anchack.*.controller"
+        "com.kbait.anchack.common.controller",
+        "com.kbait.anchack.*.controller",
+        "com.kbait.anchack.common.exception"
 })
 public class ServletConfig implements WebMvcConfigurer {
 }

@@ -2,8 +2,10 @@ package com.kbait.anchack.user.dto.response;
 
 import com.kbait.anchack.user.domain.User;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
+@NoArgsConstructor
 public class UserResponse {
 
     private Long id;
@@ -11,14 +13,18 @@ public class UserResponse {
     private String nickname;
     private String profileImageUrl;
     private String role;
+    private String provider;
 
     public static UserResponse from(User user) {
         UserResponse response = new UserResponse();
+
         response.id = user.getId();
         response.email = user.getEmail();
         response.nickname = user.getNickname();
         response.profileImageUrl = user.getProfileImageUrl();
         response.role = user.getRole();
+        response.provider = user.getProvider();
+
         return response;
     }
 }
