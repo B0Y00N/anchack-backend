@@ -3,6 +3,7 @@ package com.kbait.anchack.ingestion.service;
 import com.kbait.anchack.ingestion.client.MolitRentApiCategory;
 import com.kbait.anchack.ingestion.client.MolitRentApiClient;
 import com.kbait.anchack.ingestion.domain.RentalTransaction;
+import com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts;
 import com.kbait.anchack.ingestion.dto.external.RawRentalTransaction;
 import com.kbait.anchack.ingestion.normalizer.RentalTransactionNormalizer;
 import lombok.RequiredArgsConstructor;
@@ -30,23 +31,53 @@ public class MolitRentIngestionServiceImpl implements MolitRentIngestionService 
     ) {
         validateInputs(guCode, dealYearMonth);
 
-        List<RawRentalTransaction> rawTransactions = collectAllTransactions(guCode, dealYearMonth);
+        List<RawRentalTransaction> officetelTransactions = molitRentApiClient.fetchAllPages(
+                MolitRentApiCategory.OFFICETEL,
+                guCode,
+                dealYearMonth
+        );
+        long officetelCount = officetelTransactions.size();
+        List<RawRentalTransaction> rowHouseTransactions = molitRentApiClient.fetchAllPages(
+                MolitRentApiCategory.ROW_HOUSE,
+                guCode,
+                dealYearMonth
+        );
+        long rowHouseCount = rowHouseTransactions.size();
+        List<RawRentalTransaction> singleHouseTransactions = molitRentApiClient.fetchAllPages(
+                MolitRentApiCategory.SINGLE_HOUSE,
+                guCode,
+                dealYearMonth
+        );
+        long singleHouseCount = singleHouseTransactions.size();
+
+        List<RawRentalTransaction> rawTransactions = combineTransactions(
+                officetelTransactions,
+                rowHouseTransactions,
+                singleHouseTransactions
+        );
+        RentalTransactionCategoryCounts categoryCounts = new RentalTransactionCategoryCounts(
+                officetelCount,
+                rowHouseCount,
+                singleHouseCount
+        );
         List<RentalTransaction> normalizedTransactions = normalizeTransactions(rawTransactions);
         rentalTransactionWriteService.replaceMonthlyTransactions(
                 guCode,
                 dealYearMonth,
-                normalizedTransactions
+                normalizedTransactions,
+                categoryCounts
         );
     }
 
-    private List<RawRentalTransaction> collectAllTransactions(
-            String guCode,
-            YearMonth dealYearMonth
+    private List<RawRentalTransaction> combineTransactions(
+            List<RawRentalTransaction> officetelTransactions,
+            List<RawRentalTransaction> rowHouseTransactions,
+            List<RawRentalTransaction> singleHouseTransactions
     ) {
         List<RawRentalTransaction> rawTransactions = new ArrayList<>();
-        for (MolitRentApiCategory apiCategory : MolitRentApiCategory.values()) {
-            rawTransactions.addAll(molitRentApiClient.fetchAllPages(apiCategory, guCode, dealYearMonth));
-        }
+        rawTransactions.addAll(officetelTransactions);
+        rawTransactions.addAll(rowHouseTransactions);
+        rawTransactions.addAll(singleHouseTransactions);
         return rawTransactions;
     }
 

@@ -1,6 +1,7 @@
 package com.kbait.anchack.ingestion.service;
 
 import com.kbait.anchack.ingestion.domain.RentalTransaction;
+import com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts;
 import com.kbait.anchack.ingestion.mapper.RentalTransactionMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,8 @@ class RentalTransactionWriteServiceTest {
     private static final YearMonth JUNE_2026 = YearMonth.of(2026, 6);
     private static final LocalDate JUNE_START = LocalDate.of(2026, 6, 1);
     private static final LocalDate JULY_START = LocalDate.of(2026, 7, 1);
+    private static final RentalTransactionCategoryCounts ZERO_COUNTS =
+            new RentalTransactionCategoryCounts(0, 0, 0);
 
     @Mock
     private RentalTransactionMapper rentalTransactionMapper;
@@ -51,7 +54,7 @@ class RentalTransactionWriteServiceTest {
 
     @Test
     void 빈_목록이어도_월_범위를_삭제하고_INSERT는_호출하지_않는다() {
-        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, List.of());
+        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, List.of(), ZERO_COUNTS);
 
         InOrder inOrder = inOrder(rentalTransactionMapper);
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
@@ -68,7 +71,7 @@ class RentalTransactionWriteServiceTest {
         List<RentalTransaction> transactions = createTransactions(500);
         ArgumentCaptor<List<RentalTransaction>> captor = transactionListCaptor();
 
-        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions);
+        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions, categoryCounts(500));
 
         InOrder inOrder = inOrder(rentalTransactionMapper);
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
@@ -87,7 +90,7 @@ class RentalTransactionWriteServiceTest {
         List<RentalTransaction> transactions = createTransactions(501);
         ArgumentCaptor<List<RentalTransaction>> captor = transactionListCaptor();
 
-        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions);
+        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions, categoryCounts(501));
 
         InOrder inOrder = inOrder(rentalTransactionMapper);
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
@@ -115,7 +118,7 @@ class RentalTransactionWriteServiceTest {
         List<RentalTransaction> transactions = createTransactions(1_000);
         ArgumentCaptor<List<RentalTransaction>> captor = transactionListCaptor();
 
-        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions);
+        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions, categoryCounts(1_000));
 
         InOrder inOrder = inOrder(rentalTransactionMapper);
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
@@ -130,7 +133,12 @@ class RentalTransactionWriteServiceTest {
 
     @Test
     void 십이월_거래는_다음_연도_1월_1일을_삭제_종료일로_사용한다() {
-        writeService.replaceMonthlyTransactions(GU_CODE, YearMonth.of(2026, 12), List.of());
+        writeService.replaceMonthlyTransactions(
+                GU_CODE,
+                YearMonth.of(2026, 12),
+                List.of(),
+                ZERO_COUNTS
+        );
 
         InOrder inOrder = inOrder(rentalTransactionMapper);
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
@@ -148,7 +156,7 @@ class RentalTransactionWriteServiceTest {
         when(rentalTransactionMapper.insertBatch(anyList())).thenThrow(insertException);
 
         Throwable actual = catchThrowable(
-                () -> writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions)
+                () -> writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions, categoryCounts(1))
         );
 
         assertThat(actual).isSameAs(insertException);
@@ -172,7 +180,12 @@ class RentalTransactionWriteServiceTest {
         )).thenThrow(deleteException);
 
         Throwable actual = catchThrowable(
-                () -> writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, createTransactions(1))
+                () -> writeService.replaceMonthlyTransactions(
+                        GU_CODE,
+                        JUNE_2026,
+                        createTransactions(1),
+                        categoryCounts(1)
+                )
         );
 
         assertThat(actual).isSameAs(deleteException);
@@ -192,10 +205,41 @@ class RentalTransactionWriteServiceTest {
             String caseName,
             String guCode,
             YearMonth dealYearMonth,
-            List<RentalTransaction> transactions
+            List<RentalTransaction> transactions,
+            RentalTransactionCategoryCounts categoryCounts
     ) {
         Throwable exception = catchThrowable(
-                () -> writeService.replaceMonthlyTransactions(guCode, dealYearMonth, transactions)
+                () -> writeService.replaceMonthlyTransactions(
+                        guCode,
+                        dealYearMonth,
+                        transactions,
+                        categoryCounts
+                )
+        );
+
+        assertThat(exception).isExactlyInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(rentalTransactionMapper);
+    }
+
+    @Test
+    void API_유형별_신규_건수가_null이면_Mapper_호출_전에_거부한다() {
+        Throwable exception = catchThrowable(
+                () -> writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, List.of(), null)
+        );
+
+        assertThat(exception).isExactlyInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(rentalTransactionMapper);
+    }
+
+    @Test
+    void API_유형별_건수_합계와_거래_목록_크기가_다르면_Mapper_호출_전에_거부한다() {
+        Throwable exception = catchThrowable(
+                () -> writeService.replaceMonthlyTransactions(
+                        GU_CODE,
+                        JUNE_2026,
+                        createTransactions(1),
+                        ZERO_COUNTS
+                )
         );
 
         assertThat(exception).isExactlyInstanceOf(IllegalArgumentException.class);
@@ -233,12 +277,16 @@ class RentalTransactionWriteServiceTest {
         return ArgumentCaptor.forClass(List.class);
     }
 
+    private RentalTransactionCategoryCounts categoryCounts(long rowHouseCount) {
+        return new RentalTransactionCategoryCounts(0, rowHouseCount, 0);
+    }
+
     private static Stream<Arguments> invalidInputs() {
         return Stream.of(
-                Arguments.of("guCode null", null, JUNE_2026, List.of()),
-                Arguments.of("guCode 숫자 5자리 아님", "1162A", JUNE_2026, List.of()),
-                Arguments.of("dealYearMonth null", GU_CODE, null, List.of()),
-                Arguments.of("transactions null", GU_CODE, JUNE_2026, null)
+                Arguments.of("guCode null", null, JUNE_2026, List.of(), ZERO_COUNTS),
+                Arguments.of("guCode 숫자 5자리 아님", "1162A", JUNE_2026, List.of(), ZERO_COUNTS),
+                Arguments.of("dealYearMonth null", GU_CODE, null, List.of(), ZERO_COUNTS),
+                Arguments.of("transactions null", GU_CODE, JUNE_2026, null, ZERO_COUNTS)
         );
     }
 }

@@ -3,6 +3,7 @@ package com.kbait.anchack.ingestion.service;
 import com.kbait.anchack.ingestion.client.MolitRentApiCategory;
 import com.kbait.anchack.ingestion.client.MolitRentApiClient;
 import com.kbait.anchack.ingestion.domain.RentalTransaction;
+import com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts;
 import com.kbait.anchack.ingestion.dto.external.RawRentalTransaction;
 import com.kbait.anchack.ingestion.exception.InvalidMolitRentDataException;
 import com.kbait.anchack.ingestion.exception.MolitRentApiException;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -81,6 +83,7 @@ class MolitRentIngestionServiceTest {
         stubApiResults(rawTransactions);
         stubNormalizationResults(rawTransactions, normalizedTransactions);
         ArgumentCaptor<List<RentalTransaction>> transactionCaptor = transactionListCaptor();
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
 
         ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH);
 
@@ -96,16 +99,19 @@ class MolitRentIngestionServiceTest {
         inOrder.verify(rentalTransactionWriteService).replaceMonthlyTransactions(
                 eq(GU_CODE),
                 eq(DEAL_YEAR_MONTH),
-                transactionCaptor.capture()
+                transactionCaptor.capture(),
+                categoryCountsCaptor.capture()
         );
         inOrder.verifyNoMoreInteractions();
         assertThat(transactionCaptor.getValue()).containsExactlyElementsOf(normalizedTransactions);
+        assertCategoryCounts(categoryCountsCaptor.getValue(), 2, 1, 2);
     }
 
     @Test
     void 세_API가_모두_비어_있어도_빈_목록으로_한_번_저장한다() {
         stubEmptyApiResults();
         ArgumentCaptor<List<RentalTransaction>> transactionCaptor = transactionListCaptor();
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
 
         ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH);
 
@@ -114,11 +120,88 @@ class MolitRentIngestionServiceTest {
         inOrder.verify(rentalTransactionWriteService).replaceMonthlyTransactions(
                 eq(GU_CODE),
                 eq(DEAL_YEAR_MONTH),
-                transactionCaptor.capture()
+                transactionCaptor.capture(),
+                categoryCountsCaptor.capture()
         );
         inOrder.verifyNoMoreInteractions();
         assertThat(transactionCaptor.getValue()).isEmpty();
+        assertCategoryCounts(categoryCountsCaptor.getValue(), 0, 0, 0);
         verifyNoInteractions(rentalTransactionNormalizer);
+    }
+
+    @Test
+    void 오피스텔_API만_비어_있으면_0_1_1_건수를_전달한다() {
+        List<RawRentalTransaction> rawTransactions = List.of(
+                createRawTransaction(MolitRentApiCategory.ROW_HOUSE, 1),
+                createRawTransaction(MolitRentApiCategory.SINGLE_HOUSE, 2)
+        );
+        List<RentalTransaction> normalizedTransactions = List.of(
+                createRentalTransaction(MolitRentApiCategory.ROW_HOUSE, 1),
+                createRentalTransaction(MolitRentApiCategory.SINGLE_HOUSE, 2)
+        );
+        stubApiResults(rawTransactions);
+        stubNormalizationResults(rawTransactions, normalizedTransactions);
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
+
+        ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH);
+
+        verify(rentalTransactionWriteService).replaceMonthlyTransactions(
+                eq(GU_CODE),
+                eq(DEAL_YEAR_MONTH),
+                eq(normalizedTransactions),
+                categoryCountsCaptor.capture()
+        );
+        assertCategoryCounts(categoryCountsCaptor.getValue(), 0, 1, 1);
+    }
+
+    @Test
+    void 연립_다세대_API만_비어_있으면_1_0_1_건수를_전달한다() {
+        List<RawRentalTransaction> rawTransactions = List.of(
+                createRawTransaction(MolitRentApiCategory.OFFICETEL, 1),
+                createRawTransaction(MolitRentApiCategory.SINGLE_HOUSE, 2)
+        );
+        List<RentalTransaction> normalizedTransactions = List.of(
+                createRentalTransaction(MolitRentApiCategory.OFFICETEL, 1),
+                createRentalTransaction(MolitRentApiCategory.SINGLE_HOUSE, 2)
+        );
+        stubApiResults(rawTransactions);
+        stubNormalizationResults(rawTransactions, normalizedTransactions);
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
+
+        ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH);
+
+        verify(rentalTransactionWriteService).replaceMonthlyTransactions(
+                eq(GU_CODE),
+                eq(DEAL_YEAR_MONTH),
+                eq(normalizedTransactions),
+                categoryCountsCaptor.capture()
+        );
+        assertCategoryCounts(categoryCountsCaptor.getValue(), 1, 0, 1);
+    }
+
+    @Test
+    void 단독_다가구_API만_비어_있으면_1_1_0_건수를_전달한다() {
+        List<RawRentalTransaction> rawTransactions = List.of(
+                createRawTransaction(MolitRentApiCategory.OFFICETEL, 1),
+                createRawTransaction(MolitRentApiCategory.ROW_HOUSE, 2)
+        );
+        List<RentalTransaction> normalizedTransactions = List.of(
+                createRentalTransaction(MolitRentApiCategory.OFFICETEL, 1),
+                createRentalTransaction(MolitRentApiCategory.ROW_HOUSE, 2)
+        );
+        stubApiResults(rawTransactions);
+        stubNormalizationResults(rawTransactions, normalizedTransactions);
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
+
+        ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH);
+
+        verify(rentalTransactionWriteService).replaceMonthlyTransactions(
+                eq(GU_CODE),
+                eq(DEAL_YEAR_MONTH),
+                eq(normalizedTransactions),
+                categoryCountsCaptor.capture()
+        );
+        assertCategoryCounts(categoryCountsCaptor.getValue(), 1, 1, 0);
     }
 
     @Test
@@ -384,6 +467,21 @@ class MolitRentIngestionServiceTest {
     @SuppressWarnings("unchecked")
     private ArgumentCaptor<List<RentalTransaction>> transactionListCaptor() {
         return ArgumentCaptor.forClass(List.class);
+    }
+
+    private ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor() {
+        return ArgumentCaptor.forClass(RentalTransactionCategoryCounts.class);
+    }
+
+    private void assertCategoryCounts(
+            RentalTransactionCategoryCounts counts,
+            long officetelCount,
+            long rowHouseCount,
+            long singleHouseCount
+    ) {
+        assertThat(counts.getOfficetelCount()).isEqualTo(officetelCount);
+        assertThat(counts.getRowHouseCount()).isEqualTo(rowHouseCount);
+        assertThat(counts.getSingleHouseCount()).isEqualTo(singleHouseCount);
     }
 
     private static Stream<Arguments> invalidInputs() {

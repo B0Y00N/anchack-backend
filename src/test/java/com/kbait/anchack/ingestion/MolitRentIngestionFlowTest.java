@@ -4,6 +4,7 @@ import com.kbait.anchack.ingestion.client.MolitRentApiCategory;
 import com.kbait.anchack.ingestion.client.MolitRentApiClient;
 import com.kbait.anchack.ingestion.config.MolitRentApiProperties;
 import com.kbait.anchack.ingestion.domain.RentalTransaction;
+import com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts;
 import com.kbait.anchack.ingestion.exception.MolitRentApiResponseException;
 import com.kbait.anchack.ingestion.mapper.RentalTransactionMapper;
 import com.kbait.anchack.ingestion.normalizer.RentalTransactionNormalizer;
@@ -45,7 +46,11 @@ import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -82,6 +87,7 @@ class MolitRentIngestionFlowTest {
 
     private MockRestServiceServer server;
     private MolitRentIngestionService molitRentIngestionService;
+    private RentalTransactionWriteService rentalTransactionWriteService;
 
     @BeforeAll
     static void startConsoleCapture() {
@@ -118,12 +124,11 @@ class MolitRentIngestionFlowTest {
                 properties,
                 new MolitRentXmlParser()
         );
-        RentalTransactionWriteService writeService =
-                new RentalTransactionWriteServiceImpl(rentalTransactionMapper);
+        rentalTransactionWriteService = spy(new RentalTransactionWriteServiceImpl(rentalTransactionMapper));
         molitRentIngestionService = new MolitRentIngestionServiceImpl(
                 apiClient,
                 new RentalTransactionNormalizer(),
-                writeService
+                rentalTransactionWriteService
         );
     }
 
@@ -142,6 +147,7 @@ class MolitRentIngestionFlowTest {
                 "/molit/single_house_11620_202606.xml"
         );
         ArgumentCaptor<List<RentalTransaction>> transactionCaptor = transactionListCaptor();
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
 
         molitRentIngestionService.ingestMonthlyTransactions(
                 GU_CODE,
@@ -149,6 +155,13 @@ class MolitRentIngestionFlowTest {
         );
 
         server.verify();
+        verify(rentalTransactionWriteService).replaceMonthlyTransactions(
+                eq(GU_CODE),
+                eq(DEAL_YEAR_MONTH),
+                anyList(),
+                categoryCountsCaptor.capture()
+        );
+        assertCategoryCounts(categoryCountsCaptor.getValue());
         InOrder inOrder = inOrder(rentalTransactionMapper);
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
@@ -179,6 +192,7 @@ class MolitRentIngestionFlowTest {
         assertThat(responseException.getResultCode()).isEqualTo("30");
         assertThat(responseException.getResultMessage()).isEqualTo("SERVICE_KEY_IS_INVALID");
         server.verify();
+        verifyNoInteractions(rentalTransactionWriteService);
         verifyNoInteractions(rentalTransactionMapper);
     }
 
@@ -305,6 +319,16 @@ class MolitRentIngestionFlowTest {
     @SuppressWarnings("unchecked")
     private ArgumentCaptor<List<RentalTransaction>> transactionListCaptor() {
         return ArgumentCaptor.forClass(List.class);
+    }
+
+    private ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor() {
+        return ArgumentCaptor.forClass(RentalTransactionCategoryCounts.class);
+    }
+
+    private void assertCategoryCounts(RentalTransactionCategoryCounts counts) {
+        assertThat(counts.getOfficetelCount()).isEqualTo(100);
+        assertThat(counts.getRowHouseCount()).isEqualTo(100);
+        assertThat(counts.getSingleHouseCount()).isEqualTo(100);
     }
 
     private static final class ConsoleCapture {
