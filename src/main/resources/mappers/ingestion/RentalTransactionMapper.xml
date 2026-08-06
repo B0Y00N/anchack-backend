@@ -20,8 +20,7 @@
       area,
       deposit,
       rent,
-      maintenance_fee,
-      data_date
+      maintenance_fee
     )
     VALUES
     <foreach collection="transactions" item="transaction" separator=",">
@@ -34,8 +33,7 @@
         #{transaction.area},
         #{transaction.deposit},
         #{transaction.rent},
-        #{transaction.maintenanceFee},
-        #{transaction.dataDate}
+        #{transaction.maintenanceFee}
       )
     </foreach>
   </insert>

@@ -214,7 +214,6 @@ class RentalTransactionWriteServiceTest {
                         .deposit(index)
                         .rent(31L)
                         .maintenanceFee(0)
-                        .dataDate(LocalDate.of(2026, 8, 5))
                         .build())
                 .toList();
     }

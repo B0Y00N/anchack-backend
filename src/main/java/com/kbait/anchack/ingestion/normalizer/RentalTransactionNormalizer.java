@@ -24,15 +24,9 @@ public final class RentalTransactionNormalizer {
 
     private static final BigDecimal MAX_AREA = new BigDecimal("999.99");
 
-    public RentalTransaction normalize(
-            RawRentalTransaction rawTransaction,
-            LocalDate dataDate
-    ) {
+    public RentalTransaction normalize(RawRentalTransaction rawTransaction) {
         if (rawTransaction == null) {
             throw new InvalidMolitRentDataException("rawTransaction은 null일 수 없습니다.");
-        }
-        if (dataDate == null) {
-            throw new InvalidMolitRentDataException("dataDate는 null일 수 없습니다.");
         }
 
         MolitRentApiCategory apiCategory = requireApiCategory(rawTransaction.getApiCategory());
@@ -47,7 +41,6 @@ public final class RentalTransactionNormalizer {
                 .deposit(normalizeAmount(rawTransaction.getDeposit(), "deposit"))
                 .rent(normalizeAmount(rawTransaction.getMonthlyRent(), "monthlyRent"))
                 .maintenanceFee(0)
-                .dataDate(dataDate)
                 .build();
     }
 

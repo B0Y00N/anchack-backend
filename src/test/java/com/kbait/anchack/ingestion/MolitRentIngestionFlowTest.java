@@ -55,7 +55,6 @@ class MolitRentIngestionFlowTest {
 
     private static final String GU_CODE = "11620";
     private static final YearMonth DEAL_YEAR_MONTH = YearMonth.of(2026, 6);
-    private static final LocalDate DATA_DATE = LocalDate.of(2026, 8, 5);
     private static final String FAKE_SERVICE_KEY = "MOLIT_FLOW_TEST_KEY+/=";
     private static final String ENCODED_FAKE_SERVICE_KEY = URLEncoder.encode(
             FAKE_SERVICE_KEY,
@@ -146,8 +145,7 @@ class MolitRentIngestionFlowTest {
 
         molitRentIngestionService.ingestMonthlyTransactions(
                 GU_CODE,
-                DEAL_YEAR_MONTH,
-                DATA_DATE
+                DEAL_YEAR_MONTH
         );
 
         server.verify();
@@ -173,8 +171,7 @@ class MolitRentIngestionFlowTest {
 
         Throwable actual = catchThrowable(() -> molitRentIngestionService.ingestMonthlyTransactions(
                 GU_CODE,
-                DEAL_YEAR_MONTH,
-                DATA_DATE
+                DEAL_YEAR_MONTH
         ));
 
         assertThat(actual).isExactlyInstanceOf(MolitRentApiResponseException.class);
@@ -260,7 +257,6 @@ class MolitRentIngestionFlowTest {
             assertThat(transaction.getGuCode()).isEqualTo(GU_CODE);
             assertThat(transaction.getAdminDongId()).isNull();
             assertThat(transaction.getMaintenanceFee()).isZero();
-            assertThat(transaction.getDataDate()).isEqualTo(DATA_DATE);
             assertThat(transaction.getArea().scale()).isEqualTo(2);
         });
     }
@@ -279,16 +275,19 @@ class MolitRentIngestionFlowTest {
 
     private void assertRepresentativeTransactions(List<RentalTransaction> transactions) {
         RentalTransaction firstOfficetel = transactions.get(0);
+        assertThat(firstOfficetel.getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 29));
         assertThat(firstOfficetel.getDeposit()).isEqualTo(4_000L).isNotEqualTo(40_000_000L);
         assertThat(firstOfficetel.getRent()).isEqualTo(64L).isNotEqualTo(640_000L);
         assertThat(firstOfficetel.getArea()).isEqualByComparingTo("16.34");
 
         RentalTransaction firstRowHouse = transactions.get(100);
+        assertThat(firstRowHouse.getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 17));
         assertThat(firstRowHouse.getDeposit()).isEqualTo(22_422L).isNotEqualTo(224_220_000L);
         assertThat(firstRowHouse.getRent()).isEqualTo(31L).isNotEqualTo(310_000L);
         assertThat(firstRowHouse.getArea()).isEqualByComparingTo("45.53");
 
         RentalTransaction firstSingleHouse = transactions.get(200);
+        assertThat(firstSingleHouse.getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 16));
         assertThat(firstSingleHouse.getDeposit()).isEqualTo(12_500L).isNotEqualTo(125_000_000L);
         assertThat(firstSingleHouse.getRent()).isEqualTo(10L).isNotEqualTo(100_000L);
         assertThat(firstSingleHouse.getArea()).isEqualByComparingTo("20.00");

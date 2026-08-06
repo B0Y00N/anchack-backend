@@ -8,7 +8,6 @@ import com.kbait.anchack.ingestion.normalizer.RentalTransactionNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,13 +26,12 @@ public class MolitRentIngestionServiceImpl implements MolitRentIngestionService 
     @Override
     public void ingestMonthlyTransactions(
             String guCode,
-            YearMonth dealYearMonth,
-            LocalDate dataDate
+            YearMonth dealYearMonth
     ) {
-        validateInputs(guCode, dealYearMonth, dataDate);
+        validateInputs(guCode, dealYearMonth);
 
         List<RawRentalTransaction> rawTransactions = collectAllTransactions(guCode, dealYearMonth);
-        List<RentalTransaction> normalizedTransactions = normalizeTransactions(rawTransactions, dataDate);
+        List<RentalTransaction> normalizedTransactions = normalizeTransactions(rawTransactions);
         rentalTransactionWriteService.replaceMonthlyTransactions(
                 guCode,
                 dealYearMonth,
@@ -52,30 +50,23 @@ public class MolitRentIngestionServiceImpl implements MolitRentIngestionService 
         return rawTransactions;
     }
 
-    private List<RentalTransaction> normalizeTransactions(
-            List<RawRentalTransaction> rawTransactions,
-            LocalDate dataDate
-    ) {
+    private List<RentalTransaction> normalizeTransactions(List<RawRentalTransaction> rawTransactions) {
         List<RentalTransaction> normalizedTransactions = new ArrayList<>(rawTransactions.size());
         for (RawRentalTransaction rawTransaction : rawTransactions) {
-            normalizedTransactions.add(rentalTransactionNormalizer.normalize(rawTransaction, dataDate));
+            normalizedTransactions.add(rentalTransactionNormalizer.normalize(rawTransaction));
         }
         return normalizedTransactions;
     }
 
     private void validateInputs(
             String guCode,
-            YearMonth dealYearMonth,
-            LocalDate dataDate
+            YearMonth dealYearMonth
     ) {
         if (guCode == null || !GU_CODE_PATTERN.matcher(guCode).matches()) {
             throw new IllegalArgumentException("guCode는 숫자 5자리여야 합니다.");
         }
         if (dealYearMonth == null) {
             throw new IllegalArgumentException("dealYearMonth는 null일 수 없습니다.");
-        }
-        if (dataDate == null) {
-            throw new IllegalArgumentException("dataDate는 null일 수 없습니다.");
         }
     }
 }
