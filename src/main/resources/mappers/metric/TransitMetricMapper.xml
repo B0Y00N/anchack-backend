@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.metric.mapper.TransitMetricMapper">
+
+  <!-- 카테고리마다 컬럼이 따로 있어서 조건부 COUNT로 한 번에 집계 -->
+  <select id="findAllCountsFromPlaces" resultType="com.kbait.anchack.metric.dto.TransitMetricRow">
+    SELECT
+      ad.admin_dong_id,
+      ad.dong_population,
+      ad.dong_area,
+      COUNT(CASE WHEN p.category = 'SUBWAY_STATION' THEN 1 END) AS subway_station_count,
+      COUNT(CASE WHEN p.category = 'BUS_STOP' THEN 1 END) AS bus_stop_count
+    FROM admin_dongs ad
+    LEFT JOIN places p ON p.admin_dong_id = ad.admin_dong_id AND p.category IN ('SUBWAY_STATION', 'BUS_STOP')
+    GROUP BY ad.admin_dong_id, ad.dong_population, ad.dong_area
+  </select>
+
+  <insert id="insertRows">
+    INSERT INTO transit_metrics (admin_dong_id, subway_station_count, bus_stop_count, transit_score)
+    VALUES
+    <foreach collection="rows" item="row" separator=",">
+      (#{row.adminDongId}, #{row.subwayStationCount}, #{row.busStopCount}, #{row.score})
+    </foreach>
+  </insert>
+
+</mapper>

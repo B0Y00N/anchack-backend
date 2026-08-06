@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.metric.mapper.CultureMetricMapper">
+
+  <!--
+    LEFT JOIN이라 매칭되는 place가 없는 행정동도 결과에 포함되어야 하므로
+    COUNT(*) 대신 COUNT(p.place_id)를 쓴다 (COUNT(*)는 매칭 안 된 행도 1로 세어버림).
+  -->
+  <select id="findAllCountsFromPlaces" resultType="com.kbait.anchack.metric.dto.CultureMetricRow">
+    SELECT
+      ad.admin_dong_id,
+      ad.dong_population,
+      ad.dong_area,
+      COUNT(p.place_id) AS culture_count
+    FROM admin_dongs ad
+    LEFT JOIN places p ON p.admin_dong_id = ad.admin_dong_id AND p.category = 'CULTURE'
+    GROUP BY ad.admin_dong_id, ad.dong_population, ad.dong_area
+  </select>
+
+  <insert id="insertRows">
+    INSERT INTO culture_metrics (admin_dong_id, culture_count, culture_score)
+    VALUES
+    <foreach collection="rows" item="row" separator=",">
+      (#{row.adminDongId}, #{row.cultureCount}, #{row.score})
+    </foreach>
+  </insert>
+
+</mapper>
