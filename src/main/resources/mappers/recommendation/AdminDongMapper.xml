@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.recommendation.mapper.AdminDongMapper">
+
+  <select id="findAllIds" resultType="long">
+    SELECT admin_dong_id
+    FROM admin_dongs
+  </select>
+
+  <select id="findIdsByGuCodes" resultType="long">
+    SELECT admin_dong_id
+    FROM admin_dongs
+    WHERE gu_code IN
+    <foreach collection="guCodes" item="guCode" open="(" separator="," close=")">
+      #{guCode}
+    </foreach>
+  </select>
+
+  <select id="findLocationsByIds" resultType="com.kbait.anchack.recommendation.dto.AdminDongLocation">
+    SELECT admin_dong_id, latitude, longitude
+    FROM admin_dongs
+    WHERE admin_dong_id IN
+    <foreach collection="adminDongIds" item="adminDongId" open="(" separator="," close=")">
+      #{adminDongId}
+    </foreach>
+  </select>
+
+</mapper>
