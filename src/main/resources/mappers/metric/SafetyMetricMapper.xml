@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.metric.mapper.SafetyMetricMapper">
+
+  <!--
+    gu_crime_stats는 시계열로 여러 건 쌓이므로 구별 최신 crime_rate만 사용한다.
+    V4에서 gu_crime_stats.data_date가 제거되어, 최신 행 판단은 PK(gu_crime_id)의
+    MAX값으로 한다 - created_at(초 단위)은 배치로 여러 행이 같은 초에 들어오면
+    동시에 여러 행과 매칭되어 결과가 뻥튀기될 수 있어 PK를 쓰는 게 안전하다.
+    crime_rate 컬럼은 SafetyScoreInput.crimeRatePer10k로 이름이 달라서
+    (단순 snake_case -> camelCase 변환이 아님) 별칭을 유지해야 한다.
+  -->
+  <select id="findAllCountsFromPlaces" resultType="com.kbait.anchack.metric.dto.SafetyScoreInput">
+    SELECT
+      ad.admin_dong_id,
+      ad.dong_population,
+      COUNT(CASE WHEN p.category = 'CCTV' THEN 1 END) AS cctv_count,
+      COUNT(CASE WHEN p.category = 'STREET_LIGHT' THEN 1 END) AS street_light_count,
+      COUNT(CASE WHEN p.category = 'POLICE' THEN 1 END) AS police_office_count,
+      COUNT(CASE WHEN p.category = 'SAFETY_BELL' THEN 1 END) AS safety_bell_count,
+      latest_crime.crime_rate AS crimeRatePer10k
+    FROM admin_dongs ad
+    LEFT JOIN places p
+      ON p.admin_dong_id = ad.admin_dong_id
+      AND p.category IN ('CCTV', 'STREET_LIGHT', 'POLICE', 'SAFETY_BELL')
+    LEFT JOIN (
+      SELECT gcs.gu_code, gcs.crime_rate
+      FROM gu_crime_stats gcs
+      JOIN (
+        SELECT gu_code, MAX(gu_crime_id) AS latest_gu_crime_id
+        FROM gu_crime_stats
+        GROUP BY gu_code
+      ) latest ON latest.gu_code = gcs.gu_code AND latest.latest_gu_crime_id = gcs.gu_crime_id
+    ) latest_crime ON latest_crime.gu_code = ad.gu_code
+    GROUP BY ad.admin_dong_id, ad.dong_population, latest_crime.crime_rate
+  </select>
+
+  <insert id="insertRows">
+    INSERT INTO safety_metrics (
+      admin_dong_id, cctv_count, street_light_count, police_office_count, safety_bell_count, safety_score
+    )
+    VALUES
+    <foreach collection="rows" item="row" separator=",">
+      (#{row.adminDongId}, #{row.cctvCount}, #{row.streetLightCount}, #{row.policeOfficeCount}, #{row.safetyBellCount}, #{row.score})
+    </foreach>
+  </insert>
+
+</mapper>
