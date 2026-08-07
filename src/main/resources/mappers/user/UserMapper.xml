@@ -1,131 +1,143 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper
-        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.kbait.anchack.user.mapper.UserMapper">
 
-    <resultMap id="userResultMap"
-               type="com.kbait.anchack.user.domain.User">
+  <!-- users 테이블 조회 결과를 User 객체에 매핑한다. -->
+  <resultMap id="userResultMap"
+             type="com.kbait.anchack.user.domain.User">
 
-        <id property="id"
-            column="user_id"/>
+    <id property="id"
+        column="user_id"/>
 
-        <result property="provider"
-                column="provider"/>
+    <result property="provider"
+            column="provider"/>
 
-        <result property="providerId"
-                column="provider_id"/>
+    <result property="providerId"
+            column="provider_id"/>
 
-        <result property="nickname"
-                column="nickname"/>
+    <result property="nickname"
+            column="nickname"/>
 
-        <result property="profileImage"
-                column="profile_image_url"/>
+    <result property="profileImageUrl"
+            column="profile_image_url"/>
 
-        <result property="email"
-                column="email"/>
+    <result property="email"
+            column="email"/>
 
-        <result property="birthDate"
-                column="birth_date"/>
+    <result property="birthDate"
+            column="birth_date"/>
 
-    </resultMap>
+  </resultMap>
 
-    <select id="findByProviderAndProviderId"
-            resultMap="userResultMap">
+  <!-- 소셜 로그인 제공자와 제공자 사용자 ID로 사용자를 조회한다. -->
+  <select id="findByProviderAndProviderId"
+          resultMap="userResultMap">
 
-        SELECT
-        user_id,
-        provider,
-        provider_id,
-        nickname,
-        profile_image_url,
-        email,
-        birth_date
-        FROM users
-        WHERE provider = #{provider}
-        AND provider_id = #{providerId}
+    SELECT
+    user_id,
+    provider,
+    provider_id,
+    nickname,
+    profile_image_url,
+    email,
+    birth_date
+    FROM users
+    WHERE provider = #{provider}
+    AND provider_id = #{providerId}
 
-    </select>
+  </select>
 
-    <select id="findById"
-            resultMap="userResultMap">
+  <!-- 사용자 ID로 사용자를 조회한다. -->
+  <select id="findById"
+          parameterType="java.lang.Long"
+          resultMap="userResultMap">
 
-        SELECT
-        user_id,
-        provider,
-        provider_id,
-        nickname,
-        profile_image_url,
-        email,
-        birth_date
-        FROM users
-        WHERE user_id = #{id}
+    SELECT
+    user_id,
+    provider,
+    provider_id,
+    nickname,
+    profile_image_url,
+    email,
+    birth_date
+    FROM users
+    WHERE user_id = #{userId}
 
-    </select>
+  </select>
 
-    <insert id="insert"
-            parameterType="com.kbait.anchack.user.domain.User"
-            useGeneratedKeys="true"
-            keyProperty="id"
-            keyColumn="user_id">
+  <!-- 새로운 사용자를 저장한다. -->
+  <insert id="insert"
+          parameterType="com.kbait.anchack.user.domain.User"
+          useGeneratedKeys="true"
+          keyProperty="id"
+          keyColumn="user_id">
 
-        INSERT INTO users (
-        provider,
-        provider_id,
-        nickname,
-        profile_image_url,
-        email,
-        birth_date,
-        created_at,
-        updated_at,
-        last_login_at
-        )
-        VALUES (
-        #{provider},
-        #{providerId},
-        #{nickname},
-        #{profileImage},
-        #{email},
-        #{birthDate},
-        NOW(),
-        NOW(),
-        NOW()
-        )
+    INSERT INTO users (
+    provider,
+    provider_id,
+    nickname,
+    profile_image_url,
+    email,
+    birth_date,
+    created_at,
+    updated_at,
+    last_login_at
+    )
+    VALUES (
+    #{provider},
+    #{providerId},
+    #{nickname},
+    #{profileImageUrl},
+    #{email},
+    #{birthDate},
+    NOW(),
+    NOW(),
+    NOW()
+    )
 
-    </insert>
+  </insert>
 
-    <update id="updateProfile"
-            parameterType="com.kbait.anchack.user.domain.User">
+  <!-- 사용자가 마이페이지에서 프로필을 수정한다. -->
+  <update id="updateProfile"
+          parameterType="com.kbait.anchack.user.domain.User">
 
-        UPDATE users
-        SET nickname = #{nickname},
-        profile_image_url = #{profileImage},
-        updated_at = NOW()
-        WHERE user_id = #{id}
+    UPDATE users
+    SET
+    nickname = #{nickname},
+    birth_date = #{birthDate},
+    profile_image_url = #{profileImageUrl},
+    updated_at = NOW()
+    WHERE user_id = #{id}
 
-    </update>
+  </update>
 
-    <update id="updateSocialProfile"
-            parameterType="com.kbait.anchack.user.domain.User">
+  <!-- 소셜 로그인 시 사용자 정보를 최신 정보로 수정한다. -->
+  <update id="updateSocialProfile"
+          parameterType="com.kbait.anchack.user.domain.User">
 
-        UPDATE users
-        SET nickname = #{nickname},
-        profile_image_url = #{profileImage},
-        email = #{email},
-        birth_date = #{birthDate},
-        updated_at = NOW()
-        WHERE provider = #{provider}
-        AND provider_id = #{providerId}
+    UPDATE users
+    SET
+    nickname = #{nickname},
+    profile_image_url = #{profileImageUrl},
+    email = #{email},
+    birth_date = #{birthDate},
+    updated_at = NOW()
+    WHERE provider = #{provider}
+    AND provider_id = #{providerId}
 
-    </update>
+  </update>
 
-    <update id="updateLastLoginAt">
+  <!-- 로그인 성공 시간을 갱신한다. -->
+  <update id="updateLastLoginAt"
+          parameterType="java.lang.Long">
 
-        UPDATE users
-        SET last_login_at = NOW()
-        WHERE user_id = #{id}
+    UPDATE users
+    SET last_login_at = NOW()
+    WHERE user_id = #{userId}
 
-    </update>
+  </update>
 
 </mapper>

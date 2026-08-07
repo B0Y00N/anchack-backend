@@ -18,6 +18,12 @@ public class User implements Serializable {
     // 사용자 ID
     private Long id;
 
+    // 로그인 제공자: LOCAL, KAKAO
+    private String provider;
+
+    // 소셜 로그인 제공자의 사용자 ID
+    private String providerId;
+
     // 이메일
     private String email;
 
