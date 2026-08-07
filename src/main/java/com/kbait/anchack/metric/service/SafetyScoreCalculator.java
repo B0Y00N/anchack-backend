@@ -1,5 +1,6 @@
 package com.kbait.anchack.metric.service;
 
+import com.kbait.anchack.common.util.ScoreMath;
 import com.kbait.anchack.metric.dto.SafetyScoreInput;
 import org.springframework.stereotype.Component;
 
