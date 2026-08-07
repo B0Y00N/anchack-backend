@@ -21,8 +21,6 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 
 class RentalTransactionNormalizerTest {
 
-    private static final LocalDate DATA_DATE = LocalDate.of(2026, 8, 5);
-
     private final RentalTransactionNormalizer normalizer = new RentalTransactionNormalizer();
 
     @Test
@@ -31,7 +29,7 @@ class RentalTransactionNormalizerTest {
                 .houseType(null)
                 .build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getHouseType()).isEqualTo("오피스텔");
     }
@@ -43,7 +41,7 @@ class RentalTransactionNormalizerTest {
                 .totalFloorArea("사용하지 않는 값")
                 .build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getArea()).isEqualTo(new BigDecimal("16.34"));
     }
@@ -55,7 +53,7 @@ class RentalTransactionNormalizerTest {
                 .totalFloorArea("사용하지 않는 값")
                 .build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getArea()).isEqualTo(new BigDecimal("45.53"));
     }
@@ -67,7 +65,7 @@ class RentalTransactionNormalizerTest {
                 .totalFloorArea("20")
                 .build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getArea()).isEqualTo(new BigDecimal("20.00"));
     }
@@ -79,7 +77,7 @@ class RentalTransactionNormalizerTest {
                 .houseType(houseType)
                 .build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getHouseType()).isEqualTo(houseType);
     }
@@ -91,7 +89,7 @@ class RentalTransactionNormalizerTest {
                 .houseType(houseType)
                 .build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getHouseType()).isEqualTo(houseType);
     }
@@ -103,7 +101,7 @@ class RentalTransactionNormalizerTest {
                 .monthlyRent("31")
                 .build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getDeposit()).isEqualTo(22_422L);
         assertThat(result.getRent()).isEqualTo(31L);
@@ -115,11 +113,10 @@ class RentalTransactionNormalizerTest {
     void DB에서_생성하거나_제공하지_않는_필드는_정해진_값으로_매핑한다() {
         RawRentalTransaction rawTransaction = validTransactionBuilder(MolitRentApiCategory.ROW_HOUSE).build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getAdminDongId()).isNull();
         assertThat(result.getMaintenanceFee()).isZero();
-        assertThat(result.getDataDate()).isSameAs(DATA_DATE);
     }
 
     @Test
@@ -130,7 +127,7 @@ class RentalTransactionNormalizerTest {
                 .dealDay(" 17 ")
                 .build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 17));
     }
@@ -142,7 +139,7 @@ class RentalTransactionNormalizerTest {
                 .legalDongName(" 신림동 ")
                 .build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getGuCode()).isEqualTo("11620");
         assertThat(result.getLegalDongName()).isEqualTo("신림동");
@@ -155,7 +152,7 @@ class RentalTransactionNormalizerTest {
                 .exclusiveArea(source)
                 .build();
 
-        RentalTransaction result = normalizer.normalize(rawTransaction, DATA_DATE);
+        RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getArea()).isEqualTo(new BigDecimal(expected));
         assertThat(result.getArea().scale()).isEqualTo(2);
@@ -163,18 +160,9 @@ class RentalTransactionNormalizerTest {
 
     @Test
     void 원본_거래가_null이면_예외가_발생한다() {
-        InvalidMolitRentDataException exception = catchInvalid(() -> normalizer.normalize(null, DATA_DATE));
+        InvalidMolitRentDataException exception = catchInvalid(() -> normalizer.normalize(null));
 
         assertThat(exception).hasMessageContaining("rawTransaction");
-    }
-
-    @Test
-    void 데이터_기준일이_null이면_예외가_발생한다() {
-        RawRentalTransaction rawTransaction = validTransactionBuilder(MolitRentApiCategory.OFFICETEL).build();
-
-        InvalidMolitRentDataException exception = catchInvalid(() -> normalizer.normalize(rawTransaction, null));
-
-        assertThat(exception).hasMessageContaining("dataDate");
     }
 
     @Test
@@ -184,7 +172,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("apiCategory");
@@ -199,7 +187,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("guCode");
@@ -213,7 +201,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("legalDongName");
@@ -226,7 +214,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("dealYear");
@@ -239,7 +227,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("dealMonth");
@@ -252,7 +240,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("dealDay");
@@ -265,7 +253,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("거래일").hasCauseExactlyInstanceOf(NumberFormatException.class);
@@ -279,7 +267,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("거래일").hasCauseInstanceOf(DateTimeException.class);
@@ -293,7 +281,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("deposit");
@@ -306,7 +294,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("deposit").hasCauseExactlyInstanceOf(NumberFormatException.class);
@@ -321,7 +309,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("monthlyRent");
@@ -335,7 +323,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("area");
@@ -349,7 +337,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("area");
@@ -363,7 +351,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("area").hasMessageContaining(messagePart);
@@ -380,7 +368,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("houseType").hasMessageContaining("허용");
@@ -397,7 +385,7 @@ class RentalTransactionNormalizerTest {
                 .build();
 
         InvalidMolitRentDataException exception = catchInvalid(
-                () -> normalizer.normalize(rawTransaction, DATA_DATE)
+                () -> normalizer.normalize(rawTransaction)
         );
 
         assertThat(exception).hasMessageContaining("houseType");

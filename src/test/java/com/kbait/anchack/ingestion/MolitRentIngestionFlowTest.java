@@ -4,6 +4,7 @@ import com.kbait.anchack.ingestion.client.MolitRentApiCategory;
 import com.kbait.anchack.ingestion.client.MolitRentApiClient;
 import com.kbait.anchack.ingestion.config.MolitRentApiProperties;
 import com.kbait.anchack.ingestion.domain.RentalTransaction;
+import com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts;
 import com.kbait.anchack.ingestion.exception.MolitRentApiResponseException;
 import com.kbait.anchack.ingestion.mapper.RentalTransactionMapper;
 import com.kbait.anchack.ingestion.normalizer.RentalTransactionNormalizer;
@@ -45,7 +46,11 @@ import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -55,7 +60,6 @@ class MolitRentIngestionFlowTest {
 
     private static final String GU_CODE = "11620";
     private static final YearMonth DEAL_YEAR_MONTH = YearMonth.of(2026, 6);
-    private static final LocalDate DATA_DATE = LocalDate.of(2026, 8, 5);
     private static final String FAKE_SERVICE_KEY = "MOLIT_FLOW_TEST_KEY+/=";
     private static final String ENCODED_FAKE_SERVICE_KEY = URLEncoder.encode(
             FAKE_SERVICE_KEY,
@@ -83,6 +87,7 @@ class MolitRentIngestionFlowTest {
 
     private MockRestServiceServer server;
     private MolitRentIngestionService molitRentIngestionService;
+    private RentalTransactionWriteService rentalTransactionWriteService;
 
     @BeforeAll
     static void startConsoleCapture() {
@@ -119,12 +124,11 @@ class MolitRentIngestionFlowTest {
                 properties,
                 new MolitRentXmlParser()
         );
-        RentalTransactionWriteService writeService =
-                new RentalTransactionWriteServiceImpl(rentalTransactionMapper);
+        rentalTransactionWriteService = spy(new RentalTransactionWriteServiceImpl(rentalTransactionMapper));
         molitRentIngestionService = new MolitRentIngestionServiceImpl(
                 apiClient,
                 new RentalTransactionNormalizer(),
-                writeService
+                rentalTransactionWriteService
         );
     }
 
@@ -143,14 +147,21 @@ class MolitRentIngestionFlowTest {
                 "/molit/single_house_11620_202606.xml"
         );
         ArgumentCaptor<List<RentalTransaction>> transactionCaptor = transactionListCaptor();
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
 
         molitRentIngestionService.ingestMonthlyTransactions(
                 GU_CODE,
-                DEAL_YEAR_MONTH,
-                DATA_DATE
+                DEAL_YEAR_MONTH
         );
 
         server.verify();
+        verify(rentalTransactionWriteService).replaceMonthlyTransactions(
+                eq(GU_CODE),
+                eq(DEAL_YEAR_MONTH),
+                anyList(),
+                categoryCountsCaptor.capture()
+        );
+        assertCategoryCounts(categoryCountsCaptor.getValue());
         InOrder inOrder = inOrder(rentalTransactionMapper);
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
@@ -173,8 +184,7 @@ class MolitRentIngestionFlowTest {
 
         Throwable actual = catchThrowable(() -> molitRentIngestionService.ingestMonthlyTransactions(
                 GU_CODE,
-                DEAL_YEAR_MONTH,
-                DATA_DATE
+                DEAL_YEAR_MONTH
         ));
 
         assertThat(actual).isExactlyInstanceOf(MolitRentApiResponseException.class);
@@ -182,6 +192,7 @@ class MolitRentIngestionFlowTest {
         assertThat(responseException.getResultCode()).isEqualTo("30");
         assertThat(responseException.getResultMessage()).isEqualTo("SERVICE_KEY_IS_INVALID");
         server.verify();
+        verifyNoInteractions(rentalTransactionWriteService);
         verifyNoInteractions(rentalTransactionMapper);
     }
 
@@ -260,7 +271,6 @@ class MolitRentIngestionFlowTest {
             assertThat(transaction.getGuCode()).isEqualTo(GU_CODE);
             assertThat(transaction.getAdminDongId()).isNull();
             assertThat(transaction.getMaintenanceFee()).isZero();
-            assertThat(transaction.getDataDate()).isEqualTo(DATA_DATE);
             assertThat(transaction.getArea().scale()).isEqualTo(2);
         });
     }
@@ -279,16 +289,19 @@ class MolitRentIngestionFlowTest {
 
     private void assertRepresentativeTransactions(List<RentalTransaction> transactions) {
         RentalTransaction firstOfficetel = transactions.get(0);
+        assertThat(firstOfficetel.getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 29));
         assertThat(firstOfficetel.getDeposit()).isEqualTo(4_000L).isNotEqualTo(40_000_000L);
         assertThat(firstOfficetel.getRent()).isEqualTo(64L).isNotEqualTo(640_000L);
         assertThat(firstOfficetel.getArea()).isEqualByComparingTo("16.34");
 
         RentalTransaction firstRowHouse = transactions.get(100);
+        assertThat(firstRowHouse.getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 17));
         assertThat(firstRowHouse.getDeposit()).isEqualTo(22_422L).isNotEqualTo(224_220_000L);
         assertThat(firstRowHouse.getRent()).isEqualTo(31L).isNotEqualTo(310_000L);
         assertThat(firstRowHouse.getArea()).isEqualByComparingTo("45.53");
 
         RentalTransaction firstSingleHouse = transactions.get(200);
+        assertThat(firstSingleHouse.getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 16));
         assertThat(firstSingleHouse.getDeposit()).isEqualTo(12_500L).isNotEqualTo(125_000_000L);
         assertThat(firstSingleHouse.getRent()).isEqualTo(10L).isNotEqualTo(100_000L);
         assertThat(firstSingleHouse.getArea()).isEqualByComparingTo("20.00");
@@ -306,6 +319,16 @@ class MolitRentIngestionFlowTest {
     @SuppressWarnings("unchecked")
     private ArgumentCaptor<List<RentalTransaction>> transactionListCaptor() {
         return ArgumentCaptor.forClass(List.class);
+    }
+
+    private ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor() {
+        return ArgumentCaptor.forClass(RentalTransactionCategoryCounts.class);
+    }
+
+    private void assertCategoryCounts(RentalTransactionCategoryCounts counts) {
+        assertThat(counts.getOfficetelCount()).isEqualTo(100);
+        assertThat(counts.getRowHouseCount()).isEqualTo(100);
+        assertThat(counts.getSingleHouseCount()).isEqualTo(100);
     }
 
     private static final class ConsoleCapture {

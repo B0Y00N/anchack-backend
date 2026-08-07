@@ -3,6 +3,7 @@ package com.kbait.anchack.ingestion.service;
 import com.kbait.anchack.ingestion.client.MolitRentApiCategory;
 import com.kbait.anchack.ingestion.client.MolitRentApiClient;
 import com.kbait.anchack.ingestion.domain.RentalTransaction;
+import com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts;
 import com.kbait.anchack.ingestion.dto.external.RawRentalTransaction;
 import com.kbait.anchack.ingestion.exception.InvalidMolitRentDataException;
 import com.kbait.anchack.ingestion.exception.MolitRentApiException;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -36,7 +38,6 @@ class MolitRentIngestionServiceTest {
 
     private static final String GU_CODE = "11620";
     private static final YearMonth DEAL_YEAR_MONTH = YearMonth.of(2026, 6);
-    private static final LocalDate DATA_DATE = LocalDate.of(2026, 8, 5);
 
     @Mock
     private MolitRentApiClient molitRentApiClient;
@@ -82,8 +83,9 @@ class MolitRentIngestionServiceTest {
         stubApiResults(rawTransactions);
         stubNormalizationResults(rawTransactions, normalizedTransactions);
         ArgumentCaptor<List<RentalTransaction>> transactionCaptor = transactionListCaptor();
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
 
-        ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH, DATA_DATE);
+        ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH);
 
         InOrder inOrder = inOrder(
                 molitRentApiClient,
@@ -92,34 +94,114 @@ class MolitRentIngestionServiceTest {
         );
         verifyApiCalls(inOrder);
         for (RawRentalTransaction rawTransaction : rawTransactions) {
-            inOrder.verify(rentalTransactionNormalizer).normalize(rawTransaction, DATA_DATE);
+            inOrder.verify(rentalTransactionNormalizer).normalize(rawTransaction);
         }
         inOrder.verify(rentalTransactionWriteService).replaceMonthlyTransactions(
                 eq(GU_CODE),
                 eq(DEAL_YEAR_MONTH),
-                transactionCaptor.capture()
+                transactionCaptor.capture(),
+                categoryCountsCaptor.capture()
         );
         inOrder.verifyNoMoreInteractions();
         assertThat(transactionCaptor.getValue()).containsExactlyElementsOf(normalizedTransactions);
+        assertCategoryCounts(categoryCountsCaptor.getValue(), 2, 1, 2);
     }
 
     @Test
     void 세_API가_모두_비어_있어도_빈_목록으로_한_번_저장한다() {
         stubEmptyApiResults();
         ArgumentCaptor<List<RentalTransaction>> transactionCaptor = transactionListCaptor();
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
 
-        ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH, DATA_DATE);
+        ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH);
 
         InOrder inOrder = inOrder(molitRentApiClient, rentalTransactionWriteService);
         verifyApiCalls(inOrder);
         inOrder.verify(rentalTransactionWriteService).replaceMonthlyTransactions(
                 eq(GU_CODE),
                 eq(DEAL_YEAR_MONTH),
-                transactionCaptor.capture()
+                transactionCaptor.capture(),
+                categoryCountsCaptor.capture()
         );
         inOrder.verifyNoMoreInteractions();
         assertThat(transactionCaptor.getValue()).isEmpty();
+        assertCategoryCounts(categoryCountsCaptor.getValue(), 0, 0, 0);
         verifyNoInteractions(rentalTransactionNormalizer);
+    }
+
+    @Test
+    void 오피스텔_API만_비어_있으면_0_1_1_건수를_전달한다() {
+        List<RawRentalTransaction> rawTransactions = List.of(
+                createRawTransaction(MolitRentApiCategory.ROW_HOUSE, 1),
+                createRawTransaction(MolitRentApiCategory.SINGLE_HOUSE, 2)
+        );
+        List<RentalTransaction> normalizedTransactions = List.of(
+                createRentalTransaction(MolitRentApiCategory.ROW_HOUSE, 1),
+                createRentalTransaction(MolitRentApiCategory.SINGLE_HOUSE, 2)
+        );
+        stubApiResults(rawTransactions);
+        stubNormalizationResults(rawTransactions, normalizedTransactions);
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
+
+        ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH);
+
+        verify(rentalTransactionWriteService).replaceMonthlyTransactions(
+                eq(GU_CODE),
+                eq(DEAL_YEAR_MONTH),
+                eq(normalizedTransactions),
+                categoryCountsCaptor.capture()
+        );
+        assertCategoryCounts(categoryCountsCaptor.getValue(), 0, 1, 1);
+    }
+
+    @Test
+    void 연립_다세대_API만_비어_있으면_1_0_1_건수를_전달한다() {
+        List<RawRentalTransaction> rawTransactions = List.of(
+                createRawTransaction(MolitRentApiCategory.OFFICETEL, 1),
+                createRawTransaction(MolitRentApiCategory.SINGLE_HOUSE, 2)
+        );
+        List<RentalTransaction> normalizedTransactions = List.of(
+                createRentalTransaction(MolitRentApiCategory.OFFICETEL, 1),
+                createRentalTransaction(MolitRentApiCategory.SINGLE_HOUSE, 2)
+        );
+        stubApiResults(rawTransactions);
+        stubNormalizationResults(rawTransactions, normalizedTransactions);
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
+
+        ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH);
+
+        verify(rentalTransactionWriteService).replaceMonthlyTransactions(
+                eq(GU_CODE),
+                eq(DEAL_YEAR_MONTH),
+                eq(normalizedTransactions),
+                categoryCountsCaptor.capture()
+        );
+        assertCategoryCounts(categoryCountsCaptor.getValue(), 1, 0, 1);
+    }
+
+    @Test
+    void 단독_다가구_API만_비어_있으면_1_1_0_건수를_전달한다() {
+        List<RawRentalTransaction> rawTransactions = List.of(
+                createRawTransaction(MolitRentApiCategory.OFFICETEL, 1),
+                createRawTransaction(MolitRentApiCategory.ROW_HOUSE, 2)
+        );
+        List<RentalTransaction> normalizedTransactions = List.of(
+                createRentalTransaction(MolitRentApiCategory.OFFICETEL, 1),
+                createRentalTransaction(MolitRentApiCategory.ROW_HOUSE, 2)
+        );
+        stubApiResults(rawTransactions);
+        stubNormalizationResults(rawTransactions, normalizedTransactions);
+        ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
+
+        ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH);
+
+        verify(rentalTransactionWriteService).replaceMonthlyTransactions(
+                eq(GU_CODE),
+                eq(DEAL_YEAR_MONTH),
+                eq(normalizedTransactions),
+                categoryCountsCaptor.capture()
+        );
+        assertCategoryCounts(categoryCountsCaptor.getValue(), 1, 1, 0);
     }
 
     @Test
@@ -132,7 +214,7 @@ class MolitRentIngestionServiceTest {
         )).thenThrow(apiException);
 
         Throwable actual = catchThrowable(
-                () -> ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH, DATA_DATE)
+                () -> ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH)
         );
 
         assertThat(actual).isSameAs(apiException);
@@ -158,7 +240,7 @@ class MolitRentIngestionServiceTest {
         )).thenThrow(apiException);
 
         Throwable actual = catchThrowable(
-                () -> ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH, DATA_DATE)
+                () -> ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH)
         );
 
         assertThat(actual).isSameAs(apiException);
@@ -191,7 +273,7 @@ class MolitRentIngestionServiceTest {
         )).thenThrow(apiException);
 
         Throwable actual = catchThrowable(
-                () -> ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH, DATA_DATE)
+                () -> ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH)
         );
 
         assertThat(actual).isSameAs(apiException);
@@ -207,17 +289,17 @@ class MolitRentIngestionServiceTest {
         InvalidMolitRentDataException normalizeException =
                 new InvalidMolitRentDataException("첫 거래 정규화 실패");
         stubApiResults(rawTransactions);
-        when(rentalTransactionNormalizer.normalize(rawTransactions.get(0), DATA_DATE))
+        when(rentalTransactionNormalizer.normalize(rawTransactions.get(0)))
                 .thenThrow(normalizeException);
 
         Throwable actual = catchThrowable(
-                () -> ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH, DATA_DATE)
+                () -> ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH)
         );
 
         assertThat(actual).isSameAs(normalizeException);
         InOrder inOrder = inOrder(molitRentApiClient, rentalTransactionNormalizer);
         verifyApiCalls(inOrder);
-        inOrder.verify(rentalTransactionNormalizer).normalize(rawTransactions.get(0), DATA_DATE);
+        inOrder.verify(rentalTransactionNormalizer).normalize(rawTransactions.get(0));
         inOrder.verifyNoMoreInteractions();
         verifyNoInteractions(rentalTransactionWriteService);
     }
@@ -237,22 +319,22 @@ class MolitRentIngestionServiceTest {
         InvalidMolitRentDataException normalizeException =
                 new InvalidMolitRentDataException("중간 거래 정규화 실패");
         stubApiResults(rawTransactions);
-        when(rentalTransactionNormalizer.normalize(officetelFirst, DATA_DATE))
+        when(rentalTransactionNormalizer.normalize(officetelFirst))
                 .thenReturn(createRentalTransaction(MolitRentApiCategory.OFFICETEL, 1));
-        when(rentalTransactionNormalizer.normalize(officetelSecond, DATA_DATE))
+        when(rentalTransactionNormalizer.normalize(officetelSecond))
                 .thenReturn(createRentalTransaction(MolitRentApiCategory.OFFICETEL, 2));
-        when(rentalTransactionNormalizer.normalize(rowHouse, DATA_DATE)).thenThrow(normalizeException);
+        when(rentalTransactionNormalizer.normalize(rowHouse)).thenThrow(normalizeException);
 
         Throwable actual = catchThrowable(
-                () -> ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH, DATA_DATE)
+                () -> ingestionService.ingestMonthlyTransactions(GU_CODE, DEAL_YEAR_MONTH)
         );
 
         assertThat(actual).isSameAs(normalizeException);
         InOrder inOrder = inOrder(molitRentApiClient, rentalTransactionNormalizer);
         verifyApiCalls(inOrder);
-        inOrder.verify(rentalTransactionNormalizer).normalize(officetelFirst, DATA_DATE);
-        inOrder.verify(rentalTransactionNormalizer).normalize(officetelSecond, DATA_DATE);
-        inOrder.verify(rentalTransactionNormalizer).normalize(rowHouse, DATA_DATE);
+        inOrder.verify(rentalTransactionNormalizer).normalize(officetelFirst);
+        inOrder.verify(rentalTransactionNormalizer).normalize(officetelSecond);
+        inOrder.verify(rentalTransactionNormalizer).normalize(rowHouse);
         inOrder.verifyNoMoreInteractions();
         verifyNoInteractions(rentalTransactionWriteService);
     }
@@ -262,11 +344,10 @@ class MolitRentIngestionServiceTest {
     void 잘못된_입력은_어떤_의존성도_호출하지_않는다(
             String caseName,
             String guCode,
-            YearMonth dealYearMonth,
-            LocalDate dataDate
+            YearMonth dealYearMonth
     ) {
         Throwable actual = catchThrowable(
-                () -> ingestionService.ingestMonthlyTransactions(guCode, dealYearMonth, dataDate)
+                () -> ingestionService.ingestMonthlyTransactions(guCode, dealYearMonth)
         );
 
         assertThat(actual).isExactlyInstanceOf(IllegalArgumentException.class);
@@ -304,7 +385,7 @@ class MolitRentIngestionServiceTest {
             List<RentalTransaction> normalizedTransactions
     ) {
         for (int index = 0; index < rawTransactions.size(); index++) {
-            when(rentalTransactionNormalizer.normalize(rawTransactions.get(index), DATA_DATE))
+            when(rentalTransactionNormalizer.normalize(rawTransactions.get(index)))
                     .thenReturn(normalizedTransactions.get(index));
         }
     }
@@ -353,7 +434,6 @@ class MolitRentIngestionServiceTest {
                 .deposit(10_000L + sequence)
                 .rent(sequence)
                 .maintenanceFee(0)
-                .dataDate(DATA_DATE)
                 .build();
     }
 
@@ -389,12 +469,26 @@ class MolitRentIngestionServiceTest {
         return ArgumentCaptor.forClass(List.class);
     }
 
+    private ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor() {
+        return ArgumentCaptor.forClass(RentalTransactionCategoryCounts.class);
+    }
+
+    private void assertCategoryCounts(
+            RentalTransactionCategoryCounts counts,
+            long officetelCount,
+            long rowHouseCount,
+            long singleHouseCount
+    ) {
+        assertThat(counts.getOfficetelCount()).isEqualTo(officetelCount);
+        assertThat(counts.getRowHouseCount()).isEqualTo(rowHouseCount);
+        assertThat(counts.getSingleHouseCount()).isEqualTo(singleHouseCount);
+    }
+
     private static Stream<Arguments> invalidInputs() {
         return Stream.of(
-                Arguments.of("guCode null", null, DEAL_YEAR_MONTH, DATA_DATE),
-                Arguments.of("guCode 숫자 5자리 아님", "1162A", DEAL_YEAR_MONTH, DATA_DATE),
-                Arguments.of("dealYearMonth null", GU_CODE, null, DATA_DATE),
-                Arguments.of("dataDate null", GU_CODE, DEAL_YEAR_MONTH, null)
+                Arguments.of("guCode null", null, DEAL_YEAR_MONTH),
+                Arguments.of("guCode 숫자 5자리 아님", "1162A", DEAL_YEAR_MONTH),
+                Arguments.of("dealYearMonth null", GU_CODE, null)
         );
     }
 }

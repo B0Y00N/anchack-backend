@@ -1,6 +1,7 @@
 package com.kbait.anchack.ingestion.service;
 
 import com.kbait.anchack.ingestion.domain.RentalTransaction;
+import com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts;
 import com.kbait.anchack.ingestion.mapper.RentalTransactionMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,9 +26,10 @@ public class RentalTransactionWriteServiceImpl implements RentalTransactionWrite
     public void replaceMonthlyTransactions(
             String guCode,
             YearMonth dealYearMonth,
-            List<RentalTransaction> transactions
+            List<RentalTransaction> transactions,
+            RentalTransactionCategoryCounts categoryCounts
     ) {
-        validateInputs(guCode, dealYearMonth, transactions);
+        validateInputs(guCode, dealYearMonth, transactions, categoryCounts);
 
         LocalDate startDate = dealYearMonth.atDay(1);
         LocalDate endDateExclusive = dealYearMonth.plusMonths(1).atDay(1);
@@ -49,7 +51,8 @@ public class RentalTransactionWriteServiceImpl implements RentalTransactionWrite
     private void validateInputs(
             String guCode,
             YearMonth dealYearMonth,
-            List<RentalTransaction> transactions
+            List<RentalTransaction> transactions,
+            RentalTransactionCategoryCounts categoryCounts
     ) {
         if (guCode == null || !GU_CODE_PATTERN.matcher(guCode).matches()) {
             throw new IllegalArgumentException("guCode는 숫자 5자리여야 합니다.");
@@ -59,6 +62,14 @@ public class RentalTransactionWriteServiceImpl implements RentalTransactionWrite
         }
         if (transactions == null) {
             throw new IllegalArgumentException("transactions는 null일 수 없습니다.");
+        }
+        if (categoryCounts == null) {
+            throw new IllegalArgumentException("categoryCounts는 null일 수 없습니다.");
+        }
+        if (categoryCounts.totalCount() != transactions.size()) {
+            throw new IllegalArgumentException(
+                    "API 유형별 건수 합계와 transactions 크기가 일치해야 합니다."
+            );
         }
     }
 }

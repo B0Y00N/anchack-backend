@@ -25,5 +25,4 @@ public final class RentalTransaction {
     private final long deposit;
     private final long rent;
     private final int maintenanceFee;
-    private final LocalDate dataDate;
 }
