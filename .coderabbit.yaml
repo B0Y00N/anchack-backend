@@ -1,0 +1,25 @@
+# CodeRabbit 설정 스키마
+# IDE에서 자동완성 및 YAML 설정 오류 확인에 도움을 줍니다.
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+# CodeRabbit의 PR 리뷰 및 답변 언어
+language: "ko-KR"
+
+reviews:
+  # 리뷰 강도
+  # chill: 중요한 문제 위주
+  # assertive: 개선점까지 적극적으로 리뷰
+  profile: "assertive"
+
+  auto_review:
+    # PR 생성 시 CodeRabbit이 자동으로 리뷰합니다.
+    enabled: true
+
+    # Draft PR은 자동 리뷰하지 않습니다.
+    # 작업이 끝나 Ready for review 상태가 되었을 때 리뷰합니다.
+    drafts: false
+
+    # 기본 브랜치 외에 dev 대상 PR도 자동 리뷰
+    # feat/* -> dev PR을 검토하기 위한 설정
+    base_branches:
+      - "dev"
