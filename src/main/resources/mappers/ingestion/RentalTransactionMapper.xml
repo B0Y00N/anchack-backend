@@ -3,6 +3,29 @@
   PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
   "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.kbait.anchack.ingestion.mapper.RentalTransactionMapper">
+  <resultMap
+    id="rentalTransactionCategoryCountsResultMap"
+    type="com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts">
+    <constructor>
+      <arg column="officetel_count" javaType="_long"/>
+      <arg column="row_house_count" javaType="_long"/>
+      <arg column="single_house_count" javaType="_long"/>
+    </constructor>
+  </resultMap>
+
+  <select
+    id="findCategoryCountsByGuCodeAndTransactionDateRange"
+    resultMap="rentalTransactionCategoryCountsResultMap">
+    SELECT
+      COUNT(CASE WHEN house_type = '오피스텔' THEN 1 END) AS officetel_count,
+      COUNT(CASE WHEN house_type IN ('연립', '다세대', '연립다세대') THEN 1 END) AS row_house_count,
+      COUNT(CASE WHEN house_type IN ('단독', '다가구') THEN 1 END) AS single_house_count
+    FROM rental_transactions
+    WHERE gu_code = #{guCode}
+      AND transaction_date &gt;= #{startDate}
+      AND transaction_date &lt; #{endDateExclusive}
+  </select>
+
   <delete id="deleteByGuCodeAndTransactionDateRange">
     DELETE FROM rental_transactions
     WHERE gu_code = #{guCode}
