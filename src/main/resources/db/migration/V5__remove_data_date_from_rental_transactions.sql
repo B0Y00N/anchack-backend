@@ -2,3 +2,6 @@
 
 ALTER TABLE `rental_transactions`
 	DROP COLUMN `data_date`;
+
+ALTER TABLE `property_metrics`
+    DROP COLUMN `data_date`;
