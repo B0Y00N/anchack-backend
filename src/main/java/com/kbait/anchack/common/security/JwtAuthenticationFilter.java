@@ -23,6 +23,7 @@ public class JwtAuthenticationFilter implements Filter {
     private static final List<String> WHITELIST =
             Arrays.asList(
                     "/",
+                    "/api/health",
                     "/api/auth/kakao/callback"
             );
 

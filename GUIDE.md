@@ -62,6 +62,14 @@ cp .env.example .env
 
 기본값(`DB_ROOT_PASSWORD=localpassword`) 그대로 써도 되고, 원하면 값을 바꿔도 됩니다.
 
+**`JWT_SECRET`은 필수입니다.** 로그인 시 JWT를 발급하는데, 이 값이 없으면(또는 32바이트/256bit 미만이면) 로그인하는 순간 서버가 에러를 던집니다. 아래 명령으로 각자 생성해서 채우세요 (팀원마다 값이 달라도 상관없음 — 로컬 개발용).
+
+```bash
+openssl rand -base64 32
+```
+
+나온 값을 `.env`의 `JWT_SECRET=`에 붙여넣으면 됩니다.
+
 카카오 로그인까지 테스트하려면 `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`도 채워야 합니다(카카오 개발자 콘솔에서 발급). 비워두면 앱은 정상 기동되지만 카카오 로그인만 실패합니다.
 
 ## 4. 전체 스택 실행
@@ -106,6 +114,7 @@ docker compose logs flyway
 | 스키마를 처음부터 다시 적용하고 싶음 | `docker compose down -v` 로 볼륨까지 삭제 후 `docker compose up --build` 재실행 (로컬 더미 데이터가 전부 날아가니 주의) |
 | 코드만 바꿨는데 반영이 안 됨 | `docker compose up --build` 로 이미지 재빌드 필요 (`--build` 없이 `up`만 하면 기존 이미지를 재사용함) |
 | 앱은 잘 뜨는데 카카오 로그인(`/api/auth/kakao/callback`)만 안 됨 | `.env`에 `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET` / `KAKAO_REDIRECT_URI`가 비어 있으면 앱 자체는 조용히 잘 뜨지만 카카오 로그인만 실패함. `.env`에 카카오 개발자 콘솔에서 발급받은 값을 채우고 `docker compose up --build`로 재기동하면 해결됨 (3번 항목 참고) |
+| 로그인 시도하면 `JWT_SECRET 환경변수가 설정되지 않았습니다` 또는 `JWT_SECRET은 최소 32바이트...` 에러 | `.env`의 `JWT_SECRET`이 비어 있거나 32바이트 미만. `openssl rand -base64 32`로 생성해서 채우고 재기동 (3번 항목 참고) |
 | `flyway`가 `Validate failed: Migration checksum mismatch for migration version 1` 에러로 실패 | 예전에 이 프로젝트를 이미 한 번 세팅해서 V1 마이그레이션을 적용한 적이 있는데, 그 뒤 `V1__init_schema.sql` 내용이 수정된 경우(파일명은 같아도 체크섬이 달라짐). `docker compose down -v` 로 로컬 DB 볼륨을 통째로 지우고 `docker compose up --build`로 처음부터 다시 적용하면 해결됨 |
 
 ## 7. 스택 종료
@@ -127,6 +136,10 @@ jdbc.driver=com.mysql.cj.jdbc.Driver
 jdbc.url=jdbc:mysql://127.0.0.1:3306/anchack
 jdbc.username=root
 jdbc.password=<로컬 MySQL 비밀번호>
+
+# 필수 — 없으면 로그인 시 에러 발생 (openssl rand -base64 32 로 생성)
+jwt.secret=<32바이트 이상 랜덤 문자열>
+jwt.expiration-ms=3600000
 
 # 카카오 로그인을 테스트할 경우에만 필요 (없어도 앱 자체는 뜸)
 kakao.client-id=<카카오 개발자 콘솔 REST API 키>

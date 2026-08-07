@@ -1,5 +1,6 @@
 package com.kbait.anchack.common.config;
 
+import com.kbait.anchack.ingestion.config.MolitRentConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -11,6 +12,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -27,6 +29,7 @@ import javax.sql.DataSource;
         "com.kbait.anchack.*.service",
         "com.kbait.anchack.common.security"
 })
+@Import(MolitRentConfig.class)
 @EnableTransactionManagement
 public class RootConfig {
 
