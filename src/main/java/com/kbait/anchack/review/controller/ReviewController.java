@@ -34,169 +34,147 @@ public class ReviewController {
         this.reviewService = reviewService;
     }
 
-    // 특정 행정동의 공개 리뷰 목록
+    /**
+     * 특정 행정동의 공개 리뷰 목록 조회
+     *
+     * GET /api/reviews?adminDongId=1
+     */
     @GetMapping
-    public ResponseEntity<?> getReviews(
+    public ResponseEntity<List<ReviewResponse>>
+    getReviewsByAdminDong(
         @RequestParam Long adminDongId
     ) {
-        try {
-            List<ReviewResponse> reviews =
-                reviewService
-                    .getReviewsByAdminDong(
-                        adminDongId
-                    );
-
-            return ResponseEntity.ok(reviews);
-        } catch (IllegalArgumentException exception) {
-            return badRequest(
-                exception.getMessage()
+        List<ReviewResponse> reviews =
+            reviewService.getReviewsByAdminDong(
+                adminDongId
             );
-        }
+
+        return ResponseEntity.ok(reviews);
     }
 
-    // 리뷰 상세 조회
+    /**
+     * 리뷰 상세 조회
+     *
+     * GET /api/reviews/1
+     */
     @GetMapping("/{reviewId}")
-    public ResponseEntity<?> getReview(
+    public ResponseEntity<ReviewResponse> getReview(
         @PathVariable Long reviewId
     ) {
-        try {
-            return ResponseEntity.ok(
-                reviewService.getReview(
-                    reviewId
-                )
-            );
-        } catch (IllegalArgumentException exception) {
-            return notFound(
-                exception.getMessage()
-            );
-        } catch (IllegalStateException exception) {
-            return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(
-                    createErrorResponse(
-                        "REVIEW_NOT_AVAILABLE",
-                        exception.getMessage()
-                    )
-                );
-        }
+        ReviewResponse review =
+            reviewService.getReview(reviewId);
+
+        return ResponseEntity.ok(review);
     }
 
-    // 로그인 사용자가 작성한 리뷰 목록
+    /**
+     * 로그인 사용자가 작성한 리뷰 조회
+     *
+     * GET /api/reviews/me
+     */
     @GetMapping("/me")
-    public ResponseEntity<?> getMyReviews(
-        HttpServletRequest request
+    public ResponseEntity<List<ReviewResponse>>
+    getMyReviews(
+        HttpServletRequest httpRequest
     ) {
-        Long userId =
-            resolveUserId(request);
-
-        if (userId == null) {
-            return unauthorized();
-        }
-
-        return ResponseEntity.ok(
-            reviewService.getMyReviews(userId)
+        Long userId = getAuthenticatedUserId(
+            httpRequest
         );
+
+        List<ReviewResponse> reviews =
+            reviewService.getMyReviews(userId);
+
+        return ResponseEntity.ok(reviews);
     }
 
-    // 리뷰 등록
+    /**
+     * 리뷰 등록
+     *
+     * POST /api/reviews
+     */
     @PostMapping
-    public ResponseEntity<?> createReview(
-        HttpServletRequest request,
-        @RequestBody ReviewCreateRequest createRequest
+    public ResponseEntity<ReviewResponse> createReview(
+        HttpServletRequest httpRequest,
+        @RequestBody ReviewCreateRequest request
     ) {
-        Long userId =
-            resolveUserId(request);
+        Long userId = getAuthenticatedUserId(
+            httpRequest
+        );
 
-        if (userId == null) {
-            return unauthorized();
-        }
-
-        try {
-            ReviewResponse response =
-                reviewService.createReview(
-                    userId,
-                    createRequest
-                );
-
-            return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
-        } catch (IllegalArgumentException exception) {
-            return badRequest(
-                exception.getMessage()
+        ReviewResponse createdReview =
+            reviewService.createReview(
+                userId,
+                request
             );
-        }
+
+        return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .body(createdReview);
     }
 
-    // 본인 리뷰 수정
+    /**
+     * 리뷰 수정
+     *
+     * PUT /api/reviews/1
+     */
     @PutMapping("/{reviewId}")
-    public ResponseEntity<?> updateReview(
-        HttpServletRequest request,
+    public ResponseEntity<ReviewResponse> updateReview(
+        HttpServletRequest httpRequest,
         @PathVariable Long reviewId,
-        @RequestBody ReviewUpdateRequest updateRequest
+        @RequestBody ReviewUpdateRequest request
     ) {
-        Long userId =
-            resolveUserId(request);
+        Long userId = getAuthenticatedUserId(
+            httpRequest
+        );
 
-        if (userId == null) {
-            return unauthorized();
-        }
+        ReviewResponse updatedReview =
+            reviewService.updateReview(
+                userId,
+                reviewId,
+                request
+            );
 
-        try {
-            return ResponseEntity.ok(
-                reviewService.updateReview(
-                    userId,
-                    reviewId,
-                    updateRequest
-                )
-            );
-        } catch (SecurityException exception) {
-            return forbidden(
-                exception.getMessage()
-            );
-        } catch (IllegalArgumentException exception) {
-            return badRequest(
-                exception.getMessage()
-            );
-        } catch (IllegalStateException exception) {
-            return badRequest(
-                exception.getMessage()
-            );
-        }
+        return ResponseEntity.ok(updatedReview);
     }
 
-    // 본인 리뷰 삭제
+    /**
+     * 리뷰 삭제
+     *
+     * 실제 데이터 삭제가 아니라 상태를 DELETED로 변경한다.
+     *
+     * DELETE /api/reviews/1
+     */
     @DeleteMapping("/{reviewId}")
-    public ResponseEntity<?> deleteReview(
-        HttpServletRequest request,
+    public ResponseEntity<Map<String, Object>>
+    deleteReview(
+        HttpServletRequest httpRequest,
         @PathVariable Long reviewId
     ) {
-        Long userId =
-            resolveUserId(request);
+        Long userId = getAuthenticatedUserId(
+            httpRequest
+        );
 
-        if (userId == null) {
-            return unauthorized();
-        }
+        reviewService.deleteReview(
+            userId,
+            reviewId
+        );
 
-        try {
-            reviewService.deleteReview(
-                userId,
-                reviewId
-            );
+        Map<String, Object> response =
+            new LinkedHashMap<>();
 
-            return ResponseEntity.noContent().build();
-        } catch (SecurityException exception) {
-            return forbidden(
-                exception.getMessage()
-            );
-        } catch (IllegalArgumentException exception) {
-            return notFound(
-                exception.getMessage()
-            );
-        }
+        response.put("success", true);
+        response.put(
+            "message",
+            "리뷰가 삭제되었습니다."
+        );
+
+        return ResponseEntity.ok(response);
     }
 
-    private Long resolveUserId(
+    /**
+     * JWT 필터가 request에 저장한 사용자 ID를 가져온다.
+     */
+    private Long getAuthenticatedUserId(
         HttpServletRequest request
     ) {
         Object userIdAttribute =
@@ -204,6 +182,12 @@ public class ReviewController {
                 JwtAuthenticationFilter
                     .USER_ID_ATTRIBUTE
             );
+
+        if (userIdAttribute == null) {
+            throw new SecurityException(
+                "로그인이 필요합니다."
+            );
+        }
 
         if (userIdAttribute instanceof Long) {
             return (Long) userIdAttribute;
@@ -214,69 +198,14 @@ public class ReviewController {
                 .longValue();
         }
 
-        return null;
-    }
-
-    private ResponseEntity<?> unauthorized() {
-        return ResponseEntity
-            .status(HttpStatus.UNAUTHORIZED)
-            .body(
-                createErrorResponse(
-                    "UNAUTHORIZED",
-                    "로그인이 필요합니다."
-                )
+        try {
+            return Long.valueOf(
+                userIdAttribute.toString()
             );
-    }
-
-    private ResponseEntity<?> forbidden(
-        String message
-    ) {
-        return ResponseEntity
-            .status(HttpStatus.FORBIDDEN)
-            .body(
-                createErrorResponse(
-                    "FORBIDDEN",
-                    message
-                )
+        } catch (NumberFormatException exception) {
+            throw new SecurityException(
+                "유효하지 않은 인증 정보입니다."
             );
-    }
-
-    private ResponseEntity<?> badRequest(
-        String message
-    ) {
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(
-                createErrorResponse(
-                    "INVALID_REVIEW",
-                    message
-                )
-            );
-    }
-
-    private ResponseEntity<?> notFound(
-        String message
-    ) {
-        return ResponseEntity
-            .status(HttpStatus.NOT_FOUND)
-            .body(
-                createErrorResponse(
-                    "REVIEW_NOT_FOUND",
-                    message
-                )
-            );
-    }
-
-    private Map<String, Object> createErrorResponse(
-        String code,
-        String message
-    ) {
-        Map<String, Object> error =
-            new LinkedHashMap<>();
-
-        error.put("code", code);
-        error.put("message", message);
-
-        return error;
+        }
     }
 }

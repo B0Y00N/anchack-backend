@@ -27,6 +27,7 @@ public class Review {
     private String nickname;
     private String profileImageUrl;
     private String adminDongName;
+    private String guName;
 
     // review_scores 조회 결과
     private Map<String, Integer> categoryScores =

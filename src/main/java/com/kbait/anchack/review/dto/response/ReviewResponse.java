@@ -13,6 +13,7 @@ public class ReviewResponse {
     private Long reviewId;
     private Long adminDongId;
     private String adminDongName;
+    private String guName;
 
     private Integer overallRating;
     private String content;
@@ -40,6 +41,8 @@ public class ReviewResponse {
             review.getAdminDongId();
         response.adminDongName =
             review.getAdminDongName();
+        response.guName =
+            review.getGuName();
         response.overallRating =
             review.getOverallRating();
         response.content =

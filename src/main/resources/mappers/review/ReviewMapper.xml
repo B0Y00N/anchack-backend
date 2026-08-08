@@ -44,6 +44,9 @@
     <result property="adminDongName"
             column="admin_dong_name"/>
 
+    <result property="guName"
+            column="gu_name"/>
+
   </resultMap>
 
   <resultMap id="reviewScoreResultMap"
@@ -76,12 +79,15 @@
     r.updated_at,
     u.nickname,
     u.profile_image_url,
-    ad.name AS admin_dong_name
+    ad.name AS admin_dong_name,
+    g.name AS gu_name
     FROM reviews r
     INNER JOIN users u
     ON u.user_id = r.user_id
     INNER JOIN admin_dongs ad
     ON ad.admin_dong_id = r.admin_dong_id
+    INNER JOIN gus g
+    ON g.gu_code = ad.gu_code
   </sql>
 
   <select id="findActiveByAdminDongId"
@@ -92,7 +98,8 @@
     WHERE r.admin_dong_id = #{adminDongId}
     AND r.status = 'ACTIVE'
 
-    ORDER BY r.created_at DESC,
+    ORDER BY
+    r.created_at DESC,
     r.review_id DESC
 
   </select>
@@ -104,7 +111,8 @@
 
     WHERE r.user_id = #{userId}
 
-    ORDER BY r.created_at DESC,
+    ORDER BY
+    r.created_at DESC,
     r.review_id DESC
 
   </select>
@@ -120,7 +128,8 @@
       </if>
     </where>
 
-    ORDER BY r.created_at DESC,
+    ORDER BY
+    r.created_at DESC,
     r.review_id DESC
 
   </select>
@@ -144,8 +153,7 @@
     rs.score
     FROM review_scores rs
     INNER JOIN review_categories rc
-    ON rc.review_category_id =
-    rs.review_category_id
+    ON rc.review_category_id = rs.review_category_id
     WHERE rs.review_id = #{reviewId}
     ORDER BY rs.review_category_id
 
@@ -170,6 +178,11 @@
 
   </select>
 
+  <!--
+      핵심:
+      저장 후 AUTO_INCREMENT로 생성된 review_id를
+      Review.reviewId에 넣어준다.
+  -->
   <insert id="insertReview"
           parameterType="com.kbait.anchack.review.domain.Review"
           useGeneratedKeys="true"
@@ -208,10 +221,10 @@
     )
     SELECT
     #{reviewId},
-    review_category_id,
+    rc.review_category_id,
     #{score}
-    FROM review_categories
-    WHERE code = #{categoryCode}
+    FROM review_categories rc
+    WHERE rc.code = #{categoryCode}
 
   </insert>
 
