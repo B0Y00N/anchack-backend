@@ -16,88 +16,79 @@ import java.util.List;
 
 public class JwtAuthenticationFilter implements Filter {
 
-    public static final String USER_ID_ATTRIBUTE =
-            "AUTH_USER_ID";
+    public static final String USER_ID_ATTRIBUTE = "AUTH_USER_ID";
 
-    // JWT 인증 없이 접근할 수 있는 경로
+    // 정확히 일치해야 하는 공개 경로
     private static final List<String> WHITELIST =
-            Arrays.asList(
-                    "/",
-                    "/api/health",
-                    "/api/auth/kakao/callback"
-            );
+        Arrays.asList(
+            "/",
+            "/api/health",
+            "/api/auth/kakao/callback"
+        );
 
     private JwtTokenProvider jwtTokenProvider;
 
     @Override
-    public void init(
-            FilterConfig filterConfig
-    ) throws ServletException {
+    public void init(FilterConfig filterConfig) throws ServletException {
 
-        // Spring이 관리하는 JwtTokenProvider Bean을 가져온다.
         this.jwtTokenProvider =
-                WebApplicationContextUtils
-                        .getRequiredWebApplicationContext(
-                                filterConfig.getServletContext()
-                        )
-                        .getBean(JwtTokenProvider.class);
+            WebApplicationContextUtils
+                .getRequiredWebApplicationContext(
+                    filterConfig.getServletContext()
+                )
+                .getBean(JwtTokenProvider.class);
     }
 
     @Override
     public void doFilter(
-            ServletRequest req,
-            ServletResponse res,
-            FilterChain chain
+        ServletRequest req,
+        ServletResponse res,
+        FilterChain chain
     ) throws IOException, ServletException {
 
         HttpServletRequest request =
-                (HttpServletRequest) req;
+            (HttpServletRequest) req;
 
         HttpServletResponse response =
-                (HttpServletResponse) res;
+            (HttpServletResponse) res;
 
-        // CORS 사전 요청은 JWT 인증 없이 통과시킨다.
-        // CORS 응답 헤더는 WebConfig의 CorsFilter가 처리한다.
-        if ("OPTIONS".equalsIgnoreCase(
-                request.getMethod()
-        )) {
+        // CORS 사전 요청은 인증 없이 통과
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             chain.doFilter(request, response);
             return;
         }
 
-        String requestPath =
-                getRequestPath(request);
+        // Context Path를 제외한 요청 경로
+        String requestPath = getRequestPath(request);
 
-        // 공개 경로는 JWT 인증 없이 Controller로 전달한다.
+        // 공개 API는 인증 없이 통과
         if (isWhitelisted(requestPath)) {
             chain.doFilter(request, response);
             return;
         }
 
         String authorizationHeader =
-                request.getHeader("Authorization");
+            request.getHeader("Authorization");
 
-        // Authorization 헤더가 없거나 Bearer 형식이 아니면
-        // 인증 실패 응답을 반환한다.
         if (authorizationHeader == null
-                || !authorizationHeader.startsWith("Bearer ")) {
+            || !authorizationHeader.startsWith("Bearer ")) {
 
             sendUnauthorizedResponse(
-                    response,
-                    "인증 토큰이 없습니다."
+                response,
+                "인증 토큰이 없습니다."
             );
             return;
         }
 
         String token =
-                authorizationHeader
-                        .substring(7)
-                        .trim();
+            authorizationHeader
+                .substring(7)
+                .trim();
 
         if (token.isEmpty()) {
             sendUnauthorizedResponse(
-                    response,
-                    "인증 토큰이 없습니다."
+                response,
+                "인증 토큰이 없습니다."
             );
             return;
         }
@@ -105,91 +96,100 @@ public class JwtAuthenticationFilter implements Filter {
         Long userId;
 
         try {
-            // JWT가 유효한지 검사한다.
             if (!jwtTokenProvider.validateToken(token)) {
                 sendUnauthorizedResponse(
-                        response,
-                        "유효하지 않은 인증 토큰입니다."
+                    response,
+                    "유효하지 않은 인증 토큰입니다."
                 );
                 return;
             }
 
-            // JWT에서 사용자 PK를 가져온다.
-            userId =
-                    jwtTokenProvider.getUserId(token);
+            userId = jwtTokenProvider.getUserId(token);
 
         } catch (Exception e) {
             sendUnauthorizedResponse(
-                    response,
-                    "만료되었거나 유효하지 않은 인증 토큰입니다."
+                response,
+                "만료되었거나 유효하지 않은 인증 토큰입니다."
             );
             return;
         }
 
-        // Controller에서 사용할 수 있도록
-        // 인증된 사용자 PK를 request에 저장한다.
         request.setAttribute(
-                USER_ID_ATTRIBUTE,
-                userId
+            USER_ID_ATTRIBUTE,
+            userId
         );
 
         chain.doFilter(request, response);
     }
 
-    // Context Path를 제외한 실제 요청 경로를 반환한다.
+    /**
+     * Context Path를 제외한 실제 API 경로를 반환한다.
+     *
+     * 예:
+     * /kakao-login-backend/api/admin-dongs
+     * → /api/admin-dongs
+     */
     private String getRequestPath(
-            HttpServletRequest request
+        HttpServletRequest request
     ) {
 
         String requestUri =
-                request.getRequestURI();
+            request.getRequestURI();
 
         String contextPath =
-                request.getContextPath();
+            request.getContextPath();
 
         if (contextPath != null
-                && !contextPath.isEmpty()
-                && requestUri.startsWith(contextPath)) {
+            && !contextPath.isEmpty()
+            && requestUri.startsWith(contextPath)) {
 
             return requestUri.substring(
-                    contextPath.length()
+                contextPath.length()
             );
         }
 
         return requestUri;
     }
 
-    // JWT 인증 없이 접근할 수 있는 경로인지 확인한다.
+    /**
+     * JWT 인증 없이 접근할 수 있는 경로인지 확인한다.
+     */
     private boolean isWhitelisted(
-            String requestPath
+        String requestPath
     ) {
 
-        return WHITELIST.contains(requestPath);
+        // 정확히 일치하는 공개 경로
+        if (WHITELIST.contains(requestPath)) {
+            return true;
+        }
+
+        // 행정동 API와 그 하위 경로 공개
+        return requestPath.equals("/api/admin-dongs")
+            || requestPath.startsWith("/api/admin-dongs/");
     }
 
-    // JWT 인증 실패 응답을 반환한다.
     private void sendUnauthorizedResponse(
-            HttpServletResponse response,
-            String message
+        HttpServletResponse response,
+        String message
     ) throws IOException {
 
         response.setStatus(
-                HttpServletResponse.SC_UNAUTHORIZED
+            HttpServletResponse.SC_UNAUTHORIZED
         );
 
         response.setCharacterEncoding("UTF-8");
 
         response.setContentType(
-                "application/json;charset=UTF-8"
+            "application/json;charset=UTF-8"
         );
 
         String escapedMessage =
-                message.replace("\"", "\\\"");
+            message.replace("\"", "\\\"");
 
         response.getWriter().write(
-                "{\"message\":\""
-                        + escapedMessage
-                        + "\"}"
+            "{\"message\":\""
+                + escapedMessage
+                + "\"}"
         );
     }
 

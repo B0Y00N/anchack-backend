@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.review.mapper.ReviewCategoryMapper">
+
+  <select
+    id="findAll"
+    resultType="com.kbait.anchack.review.dto.response.ReviewCategoryResponse"
+  >
+    SELECT
+    review_category_id AS reviewCategoryId,
+    code
+    FROM review_categories
+    ORDER BY review_category_id ASC
+  </select>
+
+</mapper>
