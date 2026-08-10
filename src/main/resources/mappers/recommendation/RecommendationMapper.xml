@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.recommendation.mapper.RecommendationMapper">
+
+  <delete id="deleteByConditionId">
+    DELETE FROM recommendations
+    WHERE condition_id = #{conditionId}
+  </delete>
+
+  <!--
+    MySQL은 멀티-VALUES INSERT 한 문장에 대해 생성된 PK를 행 순서대로 전부 반환하므로,
+    useGeneratedKeys + keyProperty="rows.recommendationId"로 각 row 객체에 그대로 채워진다.
+  -->
+  <insert id="insertBatch" useGeneratedKeys="true" keyProperty="rows.recommendationId">
+    INSERT INTO recommendations (
+      condition_id, admin_dong_id, total_score, data_coverage_rate,
+      commute_time, transfer_count, `rank`, recommendation_reason, caution
+    )
+    VALUES
+    <foreach collection="rows" item="row" separator=",">
+      (
+        #{row.conditionId}, #{row.adminDongId}, #{row.totalScore}, #{row.dataCoverageRate},
+        #{row.commuteTime}, #{row.transferCount}, #{row.rank}, #{row.recommendationReason}, #{row.caution}
+      )
+    </foreach>
+  </insert>
+
+</mapper>

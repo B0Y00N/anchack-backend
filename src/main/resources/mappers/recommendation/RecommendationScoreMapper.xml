@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.recommendation.mapper.RecommendationScoreMapper">
+
+  <!--
+    recommendation_scores에는 condition_id가 없어 recommendations를 서브쿼리로 거쳐야 한다.
+    recommendations.recommendation_id FK에 ON DELETE CASCADE가 없으므로, 이 삭제가
+    recommendations 삭제보다 반드시 먼저 실행되어야 한다(RecommendationServiceImpl 참고).
+  -->
+  <delete id="deleteByConditionId">
+    DELETE FROM recommendation_scores
+    WHERE recommendation_id IN (
+      SELECT recommendation_id FROM recommendations WHERE condition_id = #{conditionId}
+    )
+  </delete>
+
+  <insert id="insertBatch">
+    INSERT INTO recommendation_scores (
+      recommendation_id, category, raw_score, weight, weighted_score
+    )
+    VALUES
+    <foreach collection="rows" item="row" separator=",">
+      (#{row.recommendationId}, #{row.category}, #{row.rawScore}, #{row.weight}, #{row.weightedScore})
+    </foreach>
+  </insert>
+
+</mapper>
