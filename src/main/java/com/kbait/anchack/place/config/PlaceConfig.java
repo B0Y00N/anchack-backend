@@ -2,6 +2,7 @@ package com.kbait.anchack.place.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kbait.anchack.place.client.KakaoPlaceApiClient;
+import com.kbait.anchack.place.client.KakaoPlaceCollectionTargetProvider;
 import com.kbait.anchack.place.parser.KakaoPlaceParser;
 import com.kbait.anchack.place.validator.KakaoPlaceCategoryValidator;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -45,6 +46,11 @@ public class PlaceConfig {
     @Bean
     public KakaoPlaceCategoryValidator kakaoPlaceCategoryValidator() {
         return new KakaoPlaceCategoryValidator();
+    }
+
+    @Bean
+    public KakaoPlaceCollectionTargetProvider kakaoPlaceCollectionTargetProvider() {
+        return new KakaoPlaceCollectionTargetProvider();
     }
 
     @Bean(name = "placeObjectMapper")
