@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.review.mapper.ReviewMapper">
+
+  <resultMap id="reviewResultMap"
+             type="com.kbait.anchack.review.domain.Review">
+
+    <id property="reviewId"
+        column="review_id"/>
+
+    <result property="adminDongId"
+            column="admin_dong_id"/>
+
+    <result property="userId"
+            column="user_id"/>
+
+    <result property="overallRating"
+            column="overall_rating"/>
+
+    <result property="content"
+            column="content"/>
+
+    <result property="anonymous"
+            column="is_anonymous"/>
+
+    <result property="status"
+            column="status"/>
+
+    <result property="createdAt"
+            column="created_at"/>
+
+    <result property="updatedAt"
+            column="updated_at"/>
+
+    <result property="nickname"
+            column="nickname"/>
+
+    <result property="profileImageUrl"
+            column="profile_image_url"/>
+
+    <result property="adminDongName"
+            column="admin_dong_name"/>
+
+    <result property="guName"
+            column="gu_name"/>
+
+  </resultMap>
+
+  <resultMap id="reviewScoreResultMap"
+             type="com.kbait.anchack.review.domain.ReviewScore">
+
+    <id property="reviewId"
+        column="review_id"/>
+
+    <id property="reviewCategoryId"
+        column="review_category_id"/>
+
+    <result property="categoryCode"
+            column="category_code"/>
+
+    <result property="score"
+            column="score"/>
+
+  </resultMap>
+
+  <sql id="reviewSelectColumns">
+    SELECT
+    r.review_id,
+    r.admin_dong_id,
+    r.user_id,
+    r.overall_rating,
+    r.content,
+    r.is_anonymous,
+    r.status,
+    r.created_at,
+    r.updated_at,
+    u.nickname,
+    u.profile_image_url,
+    ad.name AS admin_dong_name,
+    g.name AS gu_name
+    FROM reviews r
+    INNER JOIN users u
+    ON u.user_id = r.user_id
+    INNER JOIN admin_dongs ad
+    ON ad.admin_dong_id = r.admin_dong_id
+    INNER JOIN gus g
+    ON g.gu_code = ad.gu_code
+  </sql>
+
+  <select id="findActiveByAdminDongId"
+          resultMap="reviewResultMap">
+
+    <include refid="reviewSelectColumns"/>
+
+    WHERE r.admin_dong_id = #{adminDongId}
+    AND r.status = 'ACTIVE'
+
+    ORDER BY
+    r.created_at DESC,
+    r.review_id DESC
+
+  </select>
+
+  <select id="findByUserId"
+          resultMap="reviewResultMap">
+
+    <include refid="reviewSelectColumns"/>
+
+    WHERE r.user_id = #{userId}
+
+    ORDER BY
+    r.created_at DESC,
+    r.review_id DESC
+
+  </select>
+
+  <select id="findAllForAdmin"
+          resultMap="reviewResultMap">
+
+    <include refid="reviewSelectColumns"/>
+
+    <where>
+      <if test="status != null and status != ''">
+        r.status = #{status}
+      </if>
+    </where>
+
+    ORDER BY
+    r.created_at DESC,
+    r.review_id DESC
+
+  </select>
+
+  <select id="findById"
+          resultMap="reviewResultMap">
+
+    <include refid="reviewSelectColumns"/>
+
+    WHERE r.review_id = #{reviewId}
+
+  </select>
+
+  <select id="findScoresByReviewId"
+          resultMap="reviewScoreResultMap">
+
+    SELECT
+    rs.review_id,
+    rs.review_category_id,
+    rc.code AS category_code,
+    rs.score
+    FROM review_scores rs
+    INNER JOIN review_categories rc
+    ON rc.review_category_id = rs.review_category_id
+    WHERE rs.review_id = #{reviewId}
+    ORDER BY rs.review_category_id
+
+  </select>
+
+  <select id="existsAdminDong"
+          resultType="int">
+
+    SELECT COUNT(*)
+    FROM admin_dongs
+    WHERE admin_dong_id = #{adminDongId}
+
+  </select>
+
+  <select id="findUserRole"
+          resultType="string">
+
+    SELECT role
+    FROM users
+    WHERE user_id = #{userId}
+    AND status = 'ACTIVE'
+
+  </select>
+
+  <!--
+      핵심:
+      저장 후 AUTO_INCREMENT로 생성된 review_id를
+      Review.reviewId에 넣어준다.
+  -->
+  <insert id="insertReview"
+          parameterType="com.kbait.anchack.review.domain.Review"
+          useGeneratedKeys="true"
+          keyProperty="reviewId"
+          keyColumn="review_id">
+
+    INSERT INTO reviews (
+    admin_dong_id,
+    user_id,
+    overall_rating,
+    content,
+    is_anonymous,
+    status,
+    created_at,
+    updated_at
+    )
+    VALUES (
+    #{adminDongId},
+    #{userId},
+    #{overallRating},
+    #{content},
+    #{anonymous},
+    'ACTIVE',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+    )
+
+  </insert>
+
+  <insert id="insertReviewScore">
+
+    INSERT INTO review_scores (
+    review_id,
+    review_category_id,
+    score
+    )
+    SELECT
+    #{reviewId},
+    rc.review_category_id,
+    #{score}
+    FROM review_categories rc
+    WHERE rc.code = #{categoryCode}
+
+  </insert>
+
+  <update id="updateReview"
+          parameterType="com.kbait.anchack.review.domain.Review">
+
+    UPDATE reviews
+    SET
+    overall_rating = #{overallRating},
+    content = #{content},
+    is_anonymous = #{anonymous},
+    updated_at = CURRENT_TIMESTAMP
+    WHERE review_id = #{reviewId}
+
+  </update>
+
+  <delete id="deleteReviewScores">
+
+    DELETE FROM review_scores
+    WHERE review_id = #{reviewId}
+
+  </delete>
+
+  <update id="updateReviewStatus">
+
+    UPDATE reviews
+    SET
+    status = #{status},
+    updated_at = CURRENT_TIMESTAMP
+    WHERE review_id = #{reviewId}
+
+  </update>
+
+  <insert id="insertAdminAction">
+
+    INSERT INTO review_admin_actions (
+    review_id,
+    action_type,
+    reason,
+    created_at
+    )
+    VALUES (
+    #{reviewId},
+    #{actionType},
+    #{reason},
+    CURRENT_TIMESTAMP
+    )
+
+  </insert>
+
+</mapper>
