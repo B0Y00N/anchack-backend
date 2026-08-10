@@ -2,6 +2,7 @@ package com.kbait.anchack.ingestion.service;
 
 import com.kbait.anchack.ingestion.domain.RentalTransaction;
 import com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts;
+import com.kbait.anchack.ingestion.exception.UnsafeMolitRentReplacementException;
 import com.kbait.anchack.ingestion.mapper.RentalTransactionMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,9 +56,16 @@ class RentalTransactionWriteServiceTest {
 
     @Test
     void 빈_목록이어도_월_범위를_삭제하고_INSERT는_호출하지_않는다() {
+        stubExistingCounts(JUNE_2026, ZERO_COUNTS);
+
         writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, List.of(), ZERO_COUNTS);
 
         InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
                 JUNE_START,
@@ -67,13 +76,127 @@ class RentalTransactionWriteServiceTest {
     }
 
     @Test
+    void 기존이_0건이고_신규가_양수이면_조회_후_교체한다() {
+        List<RentalTransaction> transactions = createTransactions(1);
+        RentalTransactionCategoryCounts replacementCounts = categoryCounts(1);
+        stubExistingCounts(JUNE_2026, ZERO_COUNTS);
+
+        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions, replacementCounts);
+
+        InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        inOrder.verify(rentalTransactionMapper).insertBatch(transactions);
+        inOrder.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void 기존과_신규가_모두_양수이면_조회_후_교체한다() {
+        List<RentalTransaction> transactions = createTransactions(3);
+        RentalTransactionCategoryCounts existingCounts = new RentalTransactionCategoryCounts(3, 2, 1);
+        RentalTransactionCategoryCounts replacementCounts = new RentalTransactionCategoryCounts(1, 1, 1);
+        stubExistingCounts(JUNE_2026, existingCounts);
+
+        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions, replacementCounts);
+
+        InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        inOrder.verify(rentalTransactionMapper).insertBatch(transactions);
+        inOrder.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void 기존_100건에서_신규_1건으로_감소해도_조회_후_교체한다() {
+        List<RentalTransaction> transactions = createTransactions(1);
+        RentalTransactionCategoryCounts existingCounts = categoryCounts(100);
+        RentalTransactionCategoryCounts replacementCounts = categoryCounts(1);
+        stubExistingCounts(JUNE_2026, existingCounts);
+
+        writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions, replacementCounts);
+
+        InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        inOrder.verify(rentalTransactionMapper).insertBatch(transactions);
+        inOrder.verifyNoMoreInteractions();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("unsafeReplacementCounts")
+    void 기존이_양수이고_같은_API_유형의_신규가_0건이면_전체_교체를_차단한다(
+            String caseName,
+            RentalTransactionCategoryCounts existingCounts,
+            RentalTransactionCategoryCounts replacementCounts
+    ) {
+        List<RentalTransaction> transactions = createTransactions((int) replacementCounts.totalCount());
+        stubExistingCounts(JUNE_2026, existingCounts);
+
+        Throwable actual = catchThrowable(
+                () -> writeService.replaceMonthlyTransactions(
+                        GU_CODE,
+                        JUNE_2026,
+                        transactions,
+                        replacementCounts
+                )
+        );
+
+        assertThat(actual)
+                .isExactlyInstanceOf(UnsafeMolitRentReplacementException.class)
+                .hasMessageContaining(GU_CODE)
+                .hasMessageContaining(JUNE_2026.toString());
+        verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        verify(rentalTransactionMapper, never()).deleteByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        verify(rentalTransactionMapper, never()).insertBatch(anyList());
+        verifyNoMoreInteractions(rentalTransactionMapper);
+    }
+
+    @Test
     void 거래_500건은_삭제_후_순서를_유지해_한_번_INSERT한다() {
         List<RentalTransaction> transactions = createTransactions(500);
         ArgumentCaptor<List<RentalTransaction>> captor = transactionListCaptor();
+        stubExistingCounts(JUNE_2026, ZERO_COUNTS);
 
         writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions, categoryCounts(500));
 
         InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
                 JUNE_START,
@@ -89,10 +212,16 @@ class RentalTransactionWriteServiceTest {
     void 거래_501건은_삭제_후_500건과_1건으로_나누어_INSERT한다() {
         List<RentalTransaction> transactions = createTransactions(501);
         ArgumentCaptor<List<RentalTransaction>> captor = transactionListCaptor();
+        stubExistingCounts(JUNE_2026, ZERO_COUNTS);
 
         writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions, categoryCounts(501));
 
         InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
                 JUNE_START,
@@ -117,10 +246,16 @@ class RentalTransactionWriteServiceTest {
     void 거래_1000건은_빈_chunk_없이_500건씩_두_번_INSERT한다() {
         List<RentalTransaction> transactions = createTransactions(1_000);
         ArgumentCaptor<List<RentalTransaction>> captor = transactionListCaptor();
+        stubExistingCounts(JUNE_2026, ZERO_COUNTS);
 
         writeService.replaceMonthlyTransactions(GU_CODE, JUNE_2026, transactions, categoryCounts(1_000));
 
         InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
                 JUNE_START,
@@ -133,14 +268,22 @@ class RentalTransactionWriteServiceTest {
 
     @Test
     void 십이월_거래는_다음_연도_1월_1일을_삭제_종료일로_사용한다() {
+        YearMonth december2026 = YearMonth.of(2026, 12);
+        stubExistingCounts(december2026, ZERO_COUNTS);
+
         writeService.replaceMonthlyTransactions(
                 GU_CODE,
-                YearMonth.of(2026, 12),
+                december2026,
                 List.of(),
                 ZERO_COUNTS
         );
 
         InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                LocalDate.of(2026, 12, 1),
+                LocalDate.of(2027, 1, 1)
+        );
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
                 LocalDate.of(2026, 12, 1),
@@ -153,6 +296,7 @@ class RentalTransactionWriteServiceTest {
     void INSERT_예외는_동일한_객체로_그대로_전파한다() {
         List<RentalTransaction> transactions = createTransactions(1);
         RuntimeException insertException = new RuntimeException("INSERT_FAILURE");
+        stubExistingCounts(JUNE_2026, ZERO_COUNTS);
         when(rentalTransactionMapper.insertBatch(anyList())).thenThrow(insertException);
 
         Throwable actual = catchThrowable(
@@ -161,6 +305,11 @@ class RentalTransactionWriteServiceTest {
 
         assertThat(actual).isSameAs(insertException);
         InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
                 JUNE_START,
@@ -173,6 +322,7 @@ class RentalTransactionWriteServiceTest {
     @Test
     void 삭제_예외는_그대로_전파하고_INSERT를_호출하지_않는다() {
         RuntimeException deleteException = new RuntimeException("DELETE_FAILURE");
+        stubExistingCounts(JUNE_2026, ZERO_COUNTS);
         when(rentalTransactionMapper.deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
                 JUNE_START,
@@ -190,6 +340,11 @@ class RentalTransactionWriteServiceTest {
 
         assertThat(actual).isSameAs(deleteException);
         InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
                 JUNE_START,
@@ -197,6 +352,71 @@ class RentalTransactionWriteServiceTest {
         );
         inOrder.verifyNoMoreInteractions();
         verify(rentalTransactionMapper, never()).insertBatch(anyList());
+    }
+
+    @Test
+    void 기존_건수_조회_결과가_null이면_교체_SQL을_호출하지_않는다() {
+        when(rentalTransactionMapper.findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        )).thenReturn(null);
+
+        Throwable actual = catchThrowable(
+                () -> writeService.replaceMonthlyTransactions(
+                        GU_CODE,
+                        JUNE_2026,
+                        List.of(),
+                        ZERO_COUNTS
+                )
+        );
+
+        assertThat(actual).isExactlyInstanceOf(IllegalStateException.class);
+        verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        verify(rentalTransactionMapper, never()).deleteByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        verify(rentalTransactionMapper, never()).insertBatch(anyList());
+        verifyNoMoreInteractions(rentalTransactionMapper);
+    }
+
+    @Test
+    void 기존_건수_조회_예외는_동일한_객체로_전파하고_교체_SQL을_호출하지_않는다() {
+        RuntimeException findException = new RuntimeException("FIND_COUNTS_FAILURE");
+        when(rentalTransactionMapper.findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        )).thenThrow(findException);
+
+        Throwable actual = catchThrowable(
+                () -> writeService.replaceMonthlyTransactions(
+                        GU_CODE,
+                        JUNE_2026,
+                        List.of(),
+                        ZERO_COUNTS
+                )
+        );
+
+        assertThat(actual).isSameAs(findException);
+        verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        verify(rentalTransactionMapper, never()).deleteByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                JUNE_START,
+                JULY_START
+        );
+        verify(rentalTransactionMapper, never()).insertBatch(anyList());
+        verifyNoMoreInteractions(rentalTransactionMapper);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -279,6 +499,37 @@ class RentalTransactionWriteServiceTest {
 
     private RentalTransactionCategoryCounts categoryCounts(long rowHouseCount) {
         return new RentalTransactionCategoryCounts(0, rowHouseCount, 0);
+    }
+
+    private void stubExistingCounts(
+            YearMonth dealYearMonth,
+            RentalTransactionCategoryCounts existingCounts
+    ) {
+        when(rentalTransactionMapper.findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                dealYearMonth.atDay(1),
+                dealYearMonth.plusMonths(1).atDay(1)
+        )).thenReturn(existingCounts);
+    }
+
+    private static Stream<Arguments> unsafeReplacementCounts() {
+        return Stream.of(
+                Arguments.of(
+                        "오피스텔 신규 0건",
+                        new RentalTransactionCategoryCounts(1, 0, 0),
+                        new RentalTransactionCategoryCounts(0, 1, 0)
+                ),
+                Arguments.of(
+                        "연립·다세대 신규 0건",
+                        new RentalTransactionCategoryCounts(0, 1, 0),
+                        new RentalTransactionCategoryCounts(1, 0, 0)
+                ),
+                Arguments.of(
+                        "단독·다가구 신규 0건",
+                        new RentalTransactionCategoryCounts(0, 0, 1),
+                        new RentalTransactionCategoryCounts(0, 1, 0)
+                )
+        );
     }
 
     private static Stream<Arguments> invalidInputs() {

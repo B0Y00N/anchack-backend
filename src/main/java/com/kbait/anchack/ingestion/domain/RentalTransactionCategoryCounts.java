@@ -23,6 +23,20 @@ public final class RentalTransactionCategoryCounts {
         return officetelCount + rowHouseCount + singleHouseCount;
     }
 
+    public boolean canBeReplacedBy(RentalTransactionCategoryCounts replacementCounts) {
+        if (replacementCounts == null) {
+            throw new IllegalArgumentException("replacementCounts는 null일 수 없습니다.");
+        }
+
+        return canCategoryBeReplaced(officetelCount, replacementCounts.officetelCount)
+                && canCategoryBeReplaced(rowHouseCount, replacementCounts.rowHouseCount)
+                && canCategoryBeReplaced(singleHouseCount, replacementCounts.singleHouseCount);
+    }
+
+    private boolean canCategoryBeReplaced(long existingCount, long replacementCount) {
+        return existingCount == 0 || replacementCount > 0;
+    }
+
     private long requireNonNegative(long count, String fieldName) {
         if (count < 0) {
             throw new IllegalArgumentException(fieldName + "는 0 이상이어야 합니다.");

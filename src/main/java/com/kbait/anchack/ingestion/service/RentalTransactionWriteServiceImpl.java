@@ -2,6 +2,7 @@ package com.kbait.anchack.ingestion.service;
 
 import com.kbait.anchack.ingestion.domain.RentalTransaction;
 import com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts;
+import com.kbait.anchack.ingestion.exception.UnsafeMolitRentReplacementException;
 import com.kbait.anchack.ingestion.mapper.RentalTransactionMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,12 +34,33 @@ public class RentalTransactionWriteServiceImpl implements RentalTransactionWrite
 
         LocalDate startDate = dealYearMonth.atDay(1);
         LocalDate endDateExclusive = dealYearMonth.plusMonths(1).atDay(1);
+        RentalTransactionCategoryCounts existingCounts =
+                rentalTransactionMapper.findCategoryCountsByGuCodeAndTransactionDateRange(
+                        guCode,
+                        startDate,
+                        endDateExclusive
+                );
+        validateReplacement(guCode, dealYearMonth, existingCounts, categoryCounts);
         rentalTransactionMapper.deleteByGuCodeAndTransactionDateRange(
                 guCode,
                 startDate,
                 endDateExclusive
         );
         insertInChunks(transactions);
+    }
+
+    private void validateReplacement(
+            String guCode,
+            YearMonth dealYearMonth,
+            RentalTransactionCategoryCounts existingCounts,
+            RentalTransactionCategoryCounts replacementCounts
+    ) {
+        if (existingCounts == null) {
+            throw new IllegalStateException("API 유형별 기존 거래 건수 조회 결과가 null입니다.");
+        }
+        if (!existingCounts.canBeReplacedBy(replacementCounts)) {
+            throw new UnsafeMolitRentReplacementException(guCode, dealYearMonth);
+        }
     }
 
     private void insertInChunks(List<RentalTransaction> transactions) {

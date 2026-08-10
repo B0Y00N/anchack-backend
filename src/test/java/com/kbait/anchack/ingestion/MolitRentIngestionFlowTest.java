@@ -52,6 +52,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -148,6 +149,11 @@ class MolitRentIngestionFlowTest {
         );
         ArgumentCaptor<List<RentalTransaction>> transactionCaptor = transactionListCaptor();
         ArgumentCaptor<RentalTransactionCategoryCounts> categoryCountsCaptor = categoryCountsCaptor();
+        when(rentalTransactionMapper.findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 7, 1)
+        )).thenReturn(new RentalTransactionCategoryCounts(100, 100, 100));
 
         molitRentIngestionService.ingestMonthlyTransactions(
                 GU_CODE,
@@ -163,6 +169,11 @@ class MolitRentIngestionFlowTest {
         );
         assertCategoryCounts(categoryCountsCaptor.getValue());
         InOrder inOrder = inOrder(rentalTransactionMapper);
+        inOrder.verify(rentalTransactionMapper).findCategoryCountsByGuCodeAndTransactionDateRange(
+                GU_CODE,
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 7, 1)
+        );
         inOrder.verify(rentalTransactionMapper).deleteByGuCodeAndTransactionDateRange(
                 GU_CODE,
                 LocalDate.of(2026, 6, 1),
