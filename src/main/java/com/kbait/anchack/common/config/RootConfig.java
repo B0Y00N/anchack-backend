@@ -1,6 +1,7 @@
 package com.kbait.anchack.common.config;
 
 import com.kbait.anchack.ingestion.config.MolitRentConfig;
+import com.kbait.anchack.recommendation.config.RecommendationConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -29,7 +30,7 @@ import javax.sql.DataSource;
         "com.kbait.anchack.*.service",
         "com.kbait.anchack.common.security"
 })
-@Import(MolitRentConfig.class)
+@Import({MolitRentConfig.class, RecommendationConfig.class})
 @EnableTransactionManagement
 public class RootConfig {
 
