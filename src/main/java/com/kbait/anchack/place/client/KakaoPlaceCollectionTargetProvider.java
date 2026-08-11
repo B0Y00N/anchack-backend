@@ -3,10 +3,8 @@ package com.kbait.anchack.place.client;
 import com.kbait.anchack.place.domain.PlaceCategory;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public final class KakaoPlaceCollectionTargetProvider {
 
@@ -55,13 +53,11 @@ public final class KakaoPlaceCollectionTargetProvider {
             keyword("백화점", PlaceCategory.DEPARTMENT_STORE, "가정,생활 > 백화점")
     );
 
-    public List<PlaceCollectionTarget> createTargets(LocalDate dataDate) {
-        Objects.requireNonNull(dataDate, "dataDate는 null일 수 없습니다.");
-
+    public List<PlaceCollectionTarget> createTargets() {
         List<PlaceCollectionTarget> targets = new ArrayList<>();
         for (SeoulGuSearchCenter guSearchCenter : SEOUL_GU_SEARCH_CENTERS) {
             for (KakaoPlaceSearchSpec searchSpec : SEARCH_SPECS) {
-                targets.add(createTarget(dataDate, guSearchCenter, searchSpec));
+                targets.add(createTarget(guSearchCenter, searchSpec));
             }
         }
 
@@ -69,13 +65,11 @@ public final class KakaoPlaceCollectionTargetProvider {
     }
 
     private PlaceCollectionTarget createTarget(
-            LocalDate dataDate,
             SeoulGuSearchCenter guSearchCenter,
             KakaoPlaceSearchSpec searchSpec
     ) {
         return PlaceCollectionTarget.builder()
                 .dataSourceId(KAKAO_DATA_SOURCE_ID)
-                .dataDate(dataDate)
                 .guCode(guSearchCenter.guCode)
                 .guName(guSearchCenter.guName)
                 .searchType(searchSpec.searchType)

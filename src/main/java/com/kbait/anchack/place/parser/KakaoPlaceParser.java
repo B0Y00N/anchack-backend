@@ -82,7 +82,6 @@ public final class KakaoPlaceParser {
                 .roadAddress(document.getRoadAddressName())
                 .latitude(document.getY())
                 .longitude(document.getX())
-                .dataDate(target.getDataDate())
                 .build();
     }
 

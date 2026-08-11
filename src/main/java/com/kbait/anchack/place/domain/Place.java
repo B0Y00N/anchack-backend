@@ -4,7 +4,6 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @Getter
 @Builder
@@ -18,5 +17,4 @@ public final class Place {
     private final BigDecimal latitude;
     private final BigDecimal longitude;
     private final Long dataSourceId;
-    private final LocalDate dataDate;
 }

@@ -5,14 +5,12 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @Getter
 @Builder
 public final class PlaceCollectionTarget {
 
     private final Long dataSourceId;
-    private final LocalDate dataDate;
     private final String guCode;
     private final String guName;
     private final KakaoPlaceSearchType searchType;

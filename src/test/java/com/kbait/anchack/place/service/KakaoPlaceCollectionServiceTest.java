@@ -15,7 +15,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,8 +25,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class KakaoPlaceCollectionServiceTest {
-
-    private static final LocalDate DATA_DATE = LocalDate.of(2026, 8, 10);
 
     @Mock
     private KakaoPlaceCollectionTargetProvider targetProvider;
@@ -51,15 +48,15 @@ class KakaoPlaceCollectionServiceTest {
         PlaceCollectionTarget cafeTarget = createTarget("11230", PlaceCategory.CAFE, "CE7");
         ExternalPlace pharmacy = createPlace("pharmacy-1", PlaceCategory.PHARMACY);
         ExternalPlace cafe = createPlace("cafe-1", PlaceCategory.CAFE);
-        when(targetProvider.createTargets(DATA_DATE)).thenReturn(List.of(pharmacyTarget, cafeTarget));
+        when(targetProvider.createTargets()).thenReturn(List.of(pharmacyTarget, cafeTarget));
         when(kakaoPlaceApiClient.fetchPlaces(pharmacyTarget)).thenReturn(List.of(pharmacy));
         when(kakaoPlaceApiClient.fetchPlaces(cafeTarget)).thenReturn(List.of(cafe));
 
-        List<ExternalPlace> actual = collectionService.collect(DATA_DATE);
+        List<ExternalPlace> actual = collectionService.collect();
 
         assertThat(actual).containsExactly(pharmacy, cafe);
         InOrder inOrder = inOrder(targetProvider, kakaoPlaceApiClient);
-        inOrder.verify(targetProvider).createTargets(DATA_DATE);
+        inOrder.verify(targetProvider).createTargets();
         inOrder.verify(kakaoPlaceApiClient).fetchPlaces(pharmacyTarget);
         inOrder.verify(kakaoPlaceApiClient).fetchPlaces(cafeTarget);
         inOrder.verifyNoMoreInteractions();
@@ -67,9 +64,9 @@ class KakaoPlaceCollectionServiceTest {
 
     @Test
     void returnsEmptyListWhenThereIsNoTarget() {
-        when(targetProvider.createTargets(DATA_DATE)).thenReturn(List.of());
+        when(targetProvider.createTargets()).thenReturn(List.of());
 
-        List<ExternalPlace> actual = collectionService.collect(DATA_DATE);
+        List<ExternalPlace> actual = collectionService.collect();
 
         assertThat(actual).isEmpty();
         verifyNoInteractions(kakaoPlaceApiClient);
@@ -79,10 +76,10 @@ class KakaoPlaceCollectionServiceTest {
     void returnedPlacesCannotBeModified() {
         PlaceCollectionTarget target = createTarget("11210", PlaceCategory.PHARMACY, "PM9");
         ExternalPlace place = createPlace("pharmacy-1", PlaceCategory.PHARMACY);
-        when(targetProvider.createTargets(DATA_DATE)).thenReturn(List.of(target));
+        when(targetProvider.createTargets()).thenReturn(List.of(target));
         when(kakaoPlaceApiClient.fetchPlaces(target)).thenReturn(List.of(place));
 
-        List<ExternalPlace> result = collectionService.collect(DATA_DATE);
+        List<ExternalPlace> result = collectionService.collect();
         Throwable actual = catchThrowable(() -> result.add(place));
 
         assertThat(actual).isExactlyInstanceOf(UnsupportedOperationException.class);
@@ -93,24 +90,16 @@ class KakaoPlaceCollectionServiceTest {
         PlaceCollectionTarget pharmacyTarget = createTarget("11210", PlaceCategory.PHARMACY, "PM9");
         PlaceCollectionTarget cafeTarget = createTarget("11230", PlaceCategory.CAFE, "CE7");
         KakaoPlaceApiException exception = new KakaoPlaceApiException("api failed");
-        when(targetProvider.createTargets(DATA_DATE)).thenReturn(List.of(pharmacyTarget, cafeTarget));
+        when(targetProvider.createTargets()).thenReturn(List.of(pharmacyTarget, cafeTarget));
         when(kakaoPlaceApiClient.fetchPlaces(pharmacyTarget)).thenThrow(exception);
 
-        Throwable actual = catchThrowable(() -> collectionService.collect(DATA_DATE));
+        Throwable actual = catchThrowable(() -> collectionService.collect());
 
         assertThat(actual).isSameAs(exception);
         InOrder inOrder = inOrder(targetProvider, kakaoPlaceApiClient);
-        inOrder.verify(targetProvider).createTargets(DATA_DATE);
+        inOrder.verify(targetProvider).createTargets();
         inOrder.verify(kakaoPlaceApiClient).fetchPlaces(pharmacyTarget);
         inOrder.verifyNoMoreInteractions();
-    }
-
-    @Test
-    void dataDateIsRequired() {
-        Throwable actual = catchThrowable(() -> collectionService.collect(null));
-
-        assertThat(actual).isExactlyInstanceOf(NullPointerException.class);
-        verifyNoInteractions(targetProvider, kakaoPlaceApiClient);
     }
 
     private PlaceCollectionTarget createTarget(
@@ -120,7 +109,6 @@ class KakaoPlaceCollectionServiceTest {
     ) {
         return PlaceCollectionTarget.builder()
                 .dataSourceId(13L)
-                .dataDate(DATA_DATE)
                 .guCode(guCode)
                 .guName("test-gu")
                 .searchType(KakaoPlaceSearchType.CATEGORY)
@@ -145,7 +133,6 @@ class KakaoPlaceCollectionServiceTest {
                 .address("Seoul")
                 .latitude("37.478400")
                 .longitude("126.951600")
-                .dataDate(DATA_DATE)
                 .build();
     }
 }

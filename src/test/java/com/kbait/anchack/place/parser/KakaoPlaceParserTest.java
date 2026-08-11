@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -49,7 +48,6 @@ class KakaoPlaceParserTest {
         assertThat(place.getRoadAddress()).isEqualTo("서울 관악구 관악로 1");
         assertThat(place.getLatitude()).isEqualTo("37.478154");
         assertThat(place.getLongitude()).isEqualTo("126.951484");
-        assertThat(place.getDataDate()).isEqualTo(LocalDate.of(2026, 8, 4));
     }
 
     @Test
@@ -74,7 +72,6 @@ class KakaoPlaceParserTest {
     private PlaceCollectionTarget createPharmacyTarget() {
         return PlaceCollectionTarget.builder()
                 .dataSourceId(13L)
-                .dataDate(LocalDate.of(2026, 8, 4))
                 .guCode("11620")
                 .guName("관악구")
                 .searchType(KakaoPlaceSearchType.CATEGORY)
@@ -88,7 +85,6 @@ class KakaoPlaceParserTest {
     private PlaceCollectionTarget createRiverTarget() {
         return PlaceCollectionTarget.builder()
                 .dataSourceId(13L)
-                .dataDate(LocalDate.of(2026, 8, 4))
                 .guCode("11620")
                 .guName("관악구")
                 .searchType(KakaoPlaceSearchType.KEYWORD)

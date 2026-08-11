@@ -4,8 +4,6 @@ import com.kbait.anchack.place.domain.PlaceCategory;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.time.LocalDate;
-
 @Getter
 @Builder
 public final class ExternalPlace {
@@ -22,5 +20,4 @@ public final class ExternalPlace {
     private final String adminDongName;
     private final String latitude;
     private final String longitude;
-    private final LocalDate dataDate;
 }

@@ -8,7 +8,6 @@ import com.kbait.anchack.place.dto.kakao.KakaoPlaceDocument;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -66,7 +65,6 @@ class KakaoPlaceCategoryValidatorTest {
     private PlaceCollectionTarget createCategoryTarget() {
         return PlaceCollectionTarget.builder()
                 .dataSourceId(13L)
-                .dataDate(LocalDate.of(2026, 8, 4))
                 .guCode("11620")
                 .guName("관악구")
                 .searchType(KakaoPlaceSearchType.CATEGORY)
@@ -80,7 +78,6 @@ class KakaoPlaceCategoryValidatorTest {
     private PlaceCollectionTarget createKeywordTarget() {
         return PlaceCollectionTarget.builder()
                 .dataSourceId(13L)
-                .dataDate(LocalDate.of(2026, 8, 4))
                 .guCode("11620")
                 .guName("관악구")
                 .searchType(KakaoPlaceSearchType.KEYWORD)

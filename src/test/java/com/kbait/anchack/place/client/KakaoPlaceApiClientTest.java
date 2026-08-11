@@ -17,7 +17,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.net.URI;
-import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -149,7 +148,6 @@ class KakaoPlaceApiClientTest {
     private PlaceCollectionTarget createCategoryTarget() {
         return PlaceCollectionTarget.builder()
                 .dataSourceId(13L)
-                .dataDate(LocalDate.of(2026, 8, 4))
                 .guCode("11620")
                 .guName("Gwanak-gu")
                 .searchType(KakaoPlaceSearchType.CATEGORY)
@@ -163,7 +161,6 @@ class KakaoPlaceApiClientTest {
     private PlaceCollectionTarget createKeywordTarget() {
         return PlaceCollectionTarget.builder()
                 .dataSourceId(13L)
-                .dataDate(LocalDate.of(2026, 8, 4))
                 .guCode("11620")
                 .guName("Gwanak-gu")
                 .searchType(KakaoPlaceSearchType.KEYWORD)

@@ -4,7 +4,6 @@ import com.kbait.anchack.place.domain.PlaceCategory;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,7 +15,7 @@ class KakaoPlaceCollectionTargetProviderTest {
 
     @Test
     void createsTargetsForEverySeoulGuAndKakaoSearchSpec() {
-        List<PlaceCollectionTarget> targets = provider.createTargets(LocalDate.of(2026, 8, 10));
+        List<PlaceCollectionTarget> targets = provider.createTargets();
 
         assertThat(targets).hasSize(300);
         assertThat(targets)
@@ -38,12 +37,11 @@ class KakaoPlaceCollectionTargetProviderTest {
 
     @Test
     void categoryTargetUsesKakaoCategoryCode() {
-        List<PlaceCollectionTarget> targets = provider.createTargets(LocalDate.of(2026, 8, 10));
+        List<PlaceCollectionTarget> targets = provider.createTargets();
 
         PlaceCollectionTarget target = findTarget(targets, "11210", PlaceCategory.PHARMACY);
 
         assertThat(target.getDataSourceId()).isEqualTo(13L);
-        assertThat(target.getDataDate()).isEqualTo(LocalDate.of(2026, 8, 10));
         assertThat(target.getGuName()).isEqualTo("관악구");
         assertThat(target.getSearchType()).isEqualTo(KakaoPlaceSearchType.CATEGORY);
         assertThat(target.getRequestValue()).isEqualTo("PM9");
@@ -54,7 +52,7 @@ class KakaoPlaceCollectionTargetProviderTest {
 
     @Test
     void keywordTargetUsesKeywordAndExpectedKakaoCategoryName() {
-        List<PlaceCollectionTarget> targets = provider.createTargets(LocalDate.of(2026, 8, 10));
+        List<PlaceCollectionTarget> targets = provider.createTargets();
 
         PlaceCollectionTarget target = findTarget(targets, "11210", PlaceCategory.GYM);
 
@@ -65,18 +63,11 @@ class KakaoPlaceCollectionTargetProviderTest {
 
     @Test
     void returnedTargetsCannotBeModified() {
-        List<PlaceCollectionTarget> targets = provider.createTargets(LocalDate.of(2026, 8, 10));
+        List<PlaceCollectionTarget> targets = provider.createTargets();
 
         Throwable actual = catchThrowable(() -> targets.add(targets.get(0)));
 
         assertThat(actual).isExactlyInstanceOf(UnsupportedOperationException.class);
-    }
-
-    @Test
-    void dataDateIsRequired() {
-        Throwable actual = catchThrowable(() -> provider.createTargets(null));
-
-        assertThat(actual).isExactlyInstanceOf(NullPointerException.class);
     }
 
     private PlaceCollectionTarget findTarget(
