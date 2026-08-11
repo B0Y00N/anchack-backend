@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.condition.mapper.UserConditionMapper">
+
+  <!-- is_latest/is_saved은 컬럼 기본값(TRUE/FALSE)을 그대로 사용해 생략한다. -->
+  <insert id="insert" useGeneratedKeys="true" keyProperty="conditionId">
+    INSERT INTO user_conditions (
+      user_id, title, rental_type, dest_address, commute_type,
+      max_commute_time, max_transfer_count, min_area, max_deposit, max_rent
+    )
+    VALUES (
+      #{userId}, #{title}, #{rentalType}, #{destAddress}, #{commuteType},
+      #{maxCommuteTime}, #{maxTransferCount}, #{minArea}, #{maxDeposit}, #{maxRent}
+    )
+  </insert>
+
+</mapper>

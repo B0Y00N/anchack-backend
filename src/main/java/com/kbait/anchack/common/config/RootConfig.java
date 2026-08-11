@@ -1,6 +1,7 @@
 package com.kbait.anchack.common.config;
 
 import com.kbait.anchack.place.config.PlaceConfig;
+import com.kbait.anchack.recommendation.config.RecommendationConfig;
 import com.kbait.anchack.rental.config.MolitRentConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -31,8 +32,9 @@ import javax.sql.DataSource;
         "com.kbait.anchack.common.security"
 })
 @Import({
-    MolitRentConfig.class,
-    PlaceConfig.class
+        MolitRentConfig.class,
+        RecommendationConfig.class,
+        PlaceConfig.class
 })
 @EnableTransactionManagement
 public class RootConfig {

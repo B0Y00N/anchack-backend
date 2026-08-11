@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.recommendation.mapper.MetricScoreMapper">
+
+  <!--
+    9개 지표 테이블 모두 시계열로 계속 쌓이므로, admin_dong_id별 최신 행만
+    PK MAX값으로 선택한다(safety_metrics의 gu_crime_stats 최신값 선택과 동일한 패턴).
+    행정동 전체(후보 필터 없음) 대상으로 조회해 소프트 스코어링에서 z-score 기준
+    모집단으로 쓴다.
+  -->
+  <select id="findAllLatestScores" resultType="com.kbait.anchack.recommendation.dto.AdminDongMetricScores">
+    SELECT
+      ad.admin_dong_id,
+      culture.culture_score,
+      transit.transit_score,
+      sports.sports_score,
+      nature.nature_score,
+      convenience.convenience_score,
+      healthcare.healthcare_score,
+      food.food_score,
+      safety.safety_score,
+      silence.silence_score
+    FROM admin_dongs ad
+    LEFT JOIN (
+      SELECT t.admin_dong_id, t.culture_score
+      FROM culture_metrics t
+      JOIN (
+        SELECT admin_dong_id, MAX(culture_id) AS latest_id FROM culture_metrics GROUP BY admin_dong_id
+      ) latest ON latest.admin_dong_id = t.admin_dong_id AND latest.latest_id = t.culture_id
+    ) culture ON culture.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT t.admin_dong_id, t.transit_score
+      FROM transit_metrics t
+      JOIN (
+        SELECT admin_dong_id, MAX(transit_id) AS latest_id FROM transit_metrics GROUP BY admin_dong_id
+      ) latest ON latest.admin_dong_id = t.admin_dong_id AND latest.latest_id = t.transit_id
+    ) transit ON transit.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT t.admin_dong_id, t.sports_score
+      FROM sports_metrics t
+      JOIN (
+        SELECT admin_dong_id, MAX(sports_id) AS latest_id FROM sports_metrics GROUP BY admin_dong_id
+      ) latest ON latest.admin_dong_id = t.admin_dong_id AND latest.latest_id = t.sports_id
+    ) sports ON sports.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT t.admin_dong_id, t.nature_score
+      FROM nature_metrics t
+      JOIN (
+        SELECT admin_dong_id, MAX(nature_id) AS latest_id FROM nature_metrics GROUP BY admin_dong_id
+      ) latest ON latest.admin_dong_id = t.admin_dong_id AND latest.latest_id = t.nature_id
+    ) nature ON nature.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT t.admin_dong_id, t.convenience_score
+      FROM life_convenience_metrics t
+      JOIN (
+        SELECT admin_dong_id, MAX(convenience_id) AS latest_id FROM life_convenience_metrics GROUP BY admin_dong_id
+      ) latest ON latest.admin_dong_id = t.admin_dong_id AND latest.latest_id = t.convenience_id
+    ) convenience ON convenience.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT t.admin_dong_id, t.healthcare_score
+      FROM healthcare_metrics t
+      JOIN (
+        SELECT admin_dong_id, MAX(healthcare_id) AS latest_id FROM healthcare_metrics GROUP BY admin_dong_id
+      ) latest ON latest.admin_dong_id = t.admin_dong_id AND latest.latest_id = t.healthcare_id
+    ) healthcare ON healthcare.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT t.admin_dong_id, t.food_score
+      FROM food_metrics t
+      JOIN (
+        SELECT admin_dong_id, MAX(food_id) AS latest_id FROM food_metrics GROUP BY admin_dong_id
+      ) latest ON latest.admin_dong_id = t.admin_dong_id AND latest.latest_id = t.food_id
+    ) food ON food.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT t.admin_dong_id, t.safety_score
+      FROM safety_metrics t
+      JOIN (
+        SELECT admin_dong_id, MAX(safety_id) AS latest_id FROM safety_metrics GROUP BY admin_dong_id
+      ) latest ON latest.admin_dong_id = t.admin_dong_id AND latest.latest_id = t.safety_id
+    ) safety ON safety.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT t.admin_dong_id, t.silence_score
+      FROM silence_metrics t
+      JOIN (
+        SELECT admin_dong_id, MAX(silence_id) AS latest_id FROM silence_metrics GROUP BY admin_dong_id
+      ) latest ON latest.admin_dong_id = t.admin_dong_id AND latest.latest_id = t.silence_id
+    ) silence ON silence.admin_dong_id = ad.admin_dong_id
+  </select>
+
+</mapper>
