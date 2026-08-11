@@ -1,14 +1,20 @@
 package com.kbait.anchack.review.dto.response;
 
-import lombok.AllArgsConstructor;
+import com.kbait.anchack.review.domain.ReviewCategory;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 @Getter
-@NoArgsConstructor
-@AllArgsConstructor
 public class ReviewCategoryResponse {
 
-    private Long reviewCategoryId;
-    private String code;
+    private final Long reviewCategoryId;
+    private final String code;
+
+    private ReviewCategoryResponse(Long reviewCategoryId, String code) {
+        this.reviewCategoryId = reviewCategoryId;
+        this.code = code;
+    }
+
+    public static ReviewCategoryResponse from(ReviewCategory category) {
+        return new ReviewCategoryResponse(category.getReviewCategoryId(), category.getCode());
+    }
 }
