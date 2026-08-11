@@ -3,8 +3,13 @@ package com.kbait.anchack.place.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kbait.anchack.place.client.KakaoPlaceApiClient;
 import com.kbait.anchack.place.client.KakaoPlaceCollectionTargetProvider;
+import com.kbait.anchack.place.mapper.PlaceAdminDongMapper;
 import com.kbait.anchack.place.normalizer.PlaceNormalizer;
 import com.kbait.anchack.place.parser.KakaoPlaceParser;
+import com.kbait.anchack.place.resolver.AdminDongBoundaryRepository;
+import com.kbait.anchack.place.resolver.GeoJsonAdminDongBoundaryRepository;
+import com.kbait.anchack.place.resolver.PlaceAdminDongResolver;
+import com.kbait.anchack.place.resolver.PlaceAdminDongResolverImpl;
 import com.kbait.anchack.place.validator.KakaoPlaceCategoryValidator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,6 +62,21 @@ public class PlaceConfig {
     @Bean
     public PlaceNormalizer placeNormalizer() {
         return new PlaceNormalizer();
+    }
+
+    @Bean
+    public AdminDongBoundaryRepository adminDongBoundaryRepository(
+            @Qualifier("placeObjectMapper") ObjectMapper objectMapper
+    ) {
+        return new GeoJsonAdminDongBoundaryRepository(objectMapper);
+    }
+
+    @Bean
+    public PlaceAdminDongResolver placeAdminDongResolver(
+            PlaceAdminDongMapper placeAdminDongMapper,
+            AdminDongBoundaryRepository boundaryRepository
+    ) {
+        return new PlaceAdminDongResolverImpl(placeAdminDongMapper, boundaryRepository);
     }
 
     @Bean(name = "placeObjectMapper")

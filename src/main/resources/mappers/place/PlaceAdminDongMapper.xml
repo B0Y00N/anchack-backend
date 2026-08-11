@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.place.mapper.PlaceAdminDongMapper">
+
+  <select id="findIdByGuNameAndDongName"
+          resultType="java.lang.Long">
+    SELECT
+      ad.admin_dong_id
+    FROM admin_dongs ad
+    INNER JOIN gus g
+    ON g.gu_code = ad.gu_code
+    WHERE g.name = #{guName}
+    AND ad.name = #{dongName}
+    LIMIT 1
+  </select>
+
+  <select id="findIdByGuCodeAndDongCode"
+          resultType="java.lang.Long">
+    SELECT
+      admin_dong_id
+    FROM admin_dongs
+    WHERE gu_code = #{guCode}
+    AND dong_code = #{dongCode}
+    LIMIT 1
+  </select>
+
+</mapper>
