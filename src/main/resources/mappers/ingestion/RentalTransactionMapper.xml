@@ -2,10 +2,10 @@
 <!DOCTYPE mapper
   PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
   "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.kbait.anchack.ingestion.mapper.RentalTransactionMapper">
+<mapper namespace="com.kbait.anchack.rental.mapper.RentalTransactionMapper">
   <resultMap
     id="rentalTransactionCategoryCountsResultMap"
-    type="com.kbait.anchack.ingestion.domain.RentalTransactionCategoryCounts">
+    type="com.kbait.anchack.rental.domain.RentalTransactionCategoryCounts">
     <constructor>
       <arg column="officetel_count" javaType="_long"/>
       <arg column="row_house_count" javaType="_long"/>
