@@ -2,10 +2,12 @@ package com.kbait.anchack.review.mapper;
 
 import com.kbait.anchack.review.domain.Review;
 import com.kbait.anchack.review.domain.ReviewScore;
+import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
+@Mapper
 public interface ReviewMapper {
 
     List<Review> findActiveByAdminDongId(
@@ -44,9 +46,7 @@ public interface ReviewMapper {
         @Param("userId") Long userId
     );
 
-    int insertReview(
-        Review review
-    );
+    int insertReview(Review review);
 
     int insertReviewScore(
         @Param("reviewId") Long reviewId,
@@ -54,9 +54,7 @@ public interface ReviewMapper {
         @Param("score") Integer score
     );
 
-    int updateReview(
-        Review review
-    );
+    int updateReview(Review review);
 
     int deleteReviewScores(
         @Param("reviewId") Long reviewId

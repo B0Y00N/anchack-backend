@@ -54,21 +54,24 @@
     ON g.gu_code = ad.gu_code
   </sql>
 
-  <select id="findActiveByAdminDongId" resultMap="reviewResultMap">
+  <select id="findActiveByAdminDongId"
+          resultMap="reviewResultMap">
     <include refid="reviewSelectColumns"/>
     WHERE r.admin_dong_id = #{adminDongId}
     AND r.status = 'ACTIVE'
     ORDER BY r.created_at DESC, r.review_id DESC
   </select>
 
-  <select id="findByUserId" resultMap="reviewResultMap">
+  <select id="findByUserId"
+          resultMap="reviewResultMap">
     <include refid="reviewSelectColumns"/>
     WHERE r.user_id = #{userId}
     AND r.status != 'DELETED'
     ORDER BY r.created_at DESC, r.review_id DESC
   </select>
 
-  <select id="findAllForAdmin" resultMap="reviewResultMap">
+  <select id="findAllForAdmin"
+          resultMap="reviewResultMap">
     <include refid="reviewSelectColumns"/>
     <where>
       <if test="status != null and status != ''">
@@ -78,7 +81,8 @@
     ORDER BY r.created_at DESC, r.review_id DESC
   </select>
 
-  <select id="findById" resultMap="reviewResultMap">
+  <select id="findById"
+          resultMap="reviewResultMap">
     <include refid="reviewSelectColumns"/>
     WHERE r.review_id = #{reviewId}
   </select>
@@ -108,19 +112,25 @@
     INNER JOIN review_categories rc
     ON rc.review_category_id = rs.review_category_id
     WHERE rs.review_id IN
-    <foreach item="reviewId" collection="reviewIds" open="(" separator="," close=")">
+    <foreach item="reviewId"
+             collection="reviewIds"
+             open="("
+             separator=","
+             close=")">
       #{reviewId}
     </foreach>
     ORDER BY rs.review_id, rs.review_category_id
   </select>
 
-  <select id="existsAdminDong" resultType="int">
+  <select id="existsAdminDong"
+          resultType="int">
     SELECT COUNT(*)
     FROM admin_dongs
     WHERE admin_dong_id = #{adminDongId}
   </select>
 
-  <select id="findUserRole" resultType="string">
+  <select id="findUserRole"
+          resultType="string">
     SELECT role
     FROM users
     WHERE user_id = #{userId}

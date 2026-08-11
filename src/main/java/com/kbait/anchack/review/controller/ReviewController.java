@@ -2,9 +2,7 @@ package com.kbait.anchack.review.controller;
 
 import com.kbait.anchack.common.security.AuthenticatedUserResolver;
 import com.kbait.anchack.review.dto.request.ReviewCreateRequest;
-import com.kbait.anchack.review.dto.request.ReviewReactionRequest;
 import com.kbait.anchack.review.dto.request.ReviewUpdateRequest;
-import com.kbait.anchack.review.dto.response.ReviewReactionResponse;
 import com.kbait.anchack.review.dto.response.ReviewResponse;
 import com.kbait.anchack.review.service.ReviewService;
 import org.springframework.http.HttpStatus;
@@ -35,20 +33,21 @@ public class ReviewController {
     }
 
     /**
-     * 특정 행정동의 공개 리뷰 목록 조회. 로그인하지 않아도 조회할 수 있지만,
+     * 특정 행정동의 공개 리뷰 목록 조회.
      * 로그인한 사용자라면 내가 남긴 반응(myReaction)을 함께 내려준다.
      *
      * GET /api/reviews?adminDongId=1
      */
     @GetMapping
     public ResponseEntity<List<ReviewResponse>> getReviewsByAdminDong(
-        HttpServletRequest httpRequest,
-        @RequestParam Long adminDongId
+            HttpServletRequest httpRequest,
+            @RequestParam Long adminDongId
     ) {
-        Long viewerId = AuthenticatedUserResolver.resolveUserId(httpRequest);
+        Long viewerId =
+                AuthenticatedUserResolver.resolveUserId(httpRequest);
 
         return ResponseEntity.ok(
-            reviewService.getReviewsByAdminDong(adminDongId, viewerId)
+                reviewService.getReviewsByAdminDong(adminDongId, viewerId)
         );
     }
 
@@ -59,12 +58,15 @@ public class ReviewController {
      */
     @GetMapping("/{reviewId}")
     public ResponseEntity<ReviewResponse> getReview(
-        HttpServletRequest httpRequest,
-        @PathVariable Long reviewId
+            HttpServletRequest httpRequest,
+            @PathVariable Long reviewId
     ) {
-        Long viewerId = AuthenticatedUserResolver.resolveUserId(httpRequest);
+        Long viewerId =
+                AuthenticatedUserResolver.resolveUserId(httpRequest);
 
-        return ResponseEntity.ok(reviewService.getReview(reviewId, viewerId));
+        return ResponseEntity.ok(
+                reviewService.getReview(reviewId, viewerId)
+        );
     }
 
     /**
@@ -73,10 +75,15 @@ public class ReviewController {
      * GET /api/reviews/me
      */
     @GetMapping("/me")
-    public ResponseEntity<List<ReviewResponse>> getMyReviews(HttpServletRequest httpRequest) {
-        Long userId = AuthenticatedUserResolver.requireUserId(httpRequest);
+    public ResponseEntity<List<ReviewResponse>> getMyReviews(
+            HttpServletRequest httpRequest
+    ) {
+        Long userId =
+                AuthenticatedUserResolver.requireUserId(httpRequest);
 
-        return ResponseEntity.ok(reviewService.getMyReviews(userId));
+        return ResponseEntity.ok(
+                reviewService.getMyReviews(userId)
+        );
     }
 
     /**
@@ -86,14 +93,15 @@ public class ReviewController {
      */
     @PostMapping
     public ResponseEntity<ReviewResponse> createReview(
-        HttpServletRequest httpRequest,
-        @RequestBody ReviewCreateRequest request
+            HttpServletRequest httpRequest,
+            @RequestBody ReviewCreateRequest request
     ) {
-        Long userId = AuthenticatedUserResolver.requireUserId(httpRequest);
+        Long userId =
+                AuthenticatedUserResolver.requireUserId(httpRequest);
 
         return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .body(reviewService.createReview(userId, request));
+                .status(HttpStatus.CREATED)
+                .body(reviewService.createReview(userId, request));
     }
 
     /**
@@ -103,26 +111,31 @@ public class ReviewController {
      */
     @PutMapping("/{reviewId}")
     public ResponseEntity<ReviewResponse> updateReview(
-        HttpServletRequest httpRequest,
-        @PathVariable Long reviewId,
-        @RequestBody ReviewUpdateRequest request
+            HttpServletRequest httpRequest,
+            @PathVariable Long reviewId,
+            @RequestBody ReviewUpdateRequest request
     ) {
-        Long userId = AuthenticatedUserResolver.requireUserId(httpRequest);
+        Long userId =
+                AuthenticatedUserResolver.requireUserId(httpRequest);
 
-        return ResponseEntity.ok(reviewService.updateReview(userId, reviewId, request));
+        return ResponseEntity.ok(
+                reviewService.updateReview(userId, reviewId, request)
+        );
     }
 
     /**
-     * 리뷰 삭제. 실제 데이터 삭제가 아니라 상태를 DELETED로 변경한다.
+     * 리뷰 삭제.
+     * 실제 데이터를 삭제하지 않고 상태를 DELETED로 변경한다.
      *
      * DELETE /api/reviews/1
      */
     @DeleteMapping("/{reviewId}")
     public ResponseEntity<Map<String, Object>> deleteReview(
-        HttpServletRequest httpRequest,
-        @PathVariable Long reviewId
+            HttpServletRequest httpRequest,
+            @PathVariable Long reviewId
     ) {
-        Long userId = AuthenticatedUserResolver.requireUserId(httpRequest);
+        Long userId =
+                AuthenticatedUserResolver.requireUserId(httpRequest);
 
         reviewService.deleteReview(userId, reviewId);
 
@@ -133,21 +146,32 @@ public class ReviewController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 리뷰 좋아요 / 싫어요. 같은 반응을 다시 누르면 취소되고, 반대 반응을 누르면 바뀐다.
+    /*
+     * 좋아요/싫어요 기능 임시 비활성화
      *
-     * POST /api/reviews/1/reactions
-     * body: { "reactionType": "LIKE" | "DISLIKE" }
+     * 다시 활성화할 때 아래 import도 추가해야 한다.
+     * import com.kbait.anchack.review.dto.request.ReviewReactionRequest;
+     * import com.kbait.anchack.review.dto.response.ReviewReactionResponse;
+     *
+     * @PostMapping("/{reviewId}/reactions")
+     * public ResponseEntity<ReviewReactionResponse> reactToReview(
+     *     HttpServletRequest httpRequest,
+     *     @PathVariable Long reviewId,
+     *     @RequestBody ReviewReactionRequest request
+     * ) {
+     *     Long userId =
+     *         AuthenticatedUserResolver.requireUserId(httpRequest);
+     *
+     *     String reactionType =
+     *         request == null ? null : request.getReactionType();
+     *
+     *     return ResponseEntity.ok(
+     *         reviewService.reactToReview(
+     *             userId,
+     *             reviewId,
+     *             reactionType
+     *         )
+     *     );
+     * }
      */
-    @PostMapping("/{reviewId}/reactions")
-    public ResponseEntity<ReviewReactionResponse> reactToReview(
-        HttpServletRequest httpRequest,
-        @PathVariable Long reviewId,
-        @RequestBody ReviewReactionRequest request
-    ) {
-        Long userId = AuthenticatedUserResolver.requireUserId(httpRequest);
-        String reactionType = request == null ? null : request.getReactionType();
-
-        return ResponseEntity.ok(reviewService.reactToReview(userId, reviewId, reactionType));
-    }
 }
