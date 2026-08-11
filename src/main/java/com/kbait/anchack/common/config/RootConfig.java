@@ -3,6 +3,7 @@ package com.kbait.anchack.common.config;
 import com.kbait.anchack.place.config.PlaceConfig;
 import com.kbait.anchack.recommendation.config.RecommendationConfig;
 import com.kbait.anchack.rental.config.MolitRentConfig;
+import com.kbait.anchack.route.config.RouteConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -34,7 +35,8 @@ import javax.sql.DataSource;
 @Import({
         MolitRentConfig.class,
         RecommendationConfig.class,
-        PlaceConfig.class
+        PlaceConfig.class,
+        RouteConfig.class
 })
 @EnableTransactionManagement
 public class RootConfig {
