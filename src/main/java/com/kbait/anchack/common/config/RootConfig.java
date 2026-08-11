@@ -2,6 +2,8 @@ package com.kbait.anchack.common.config;
 
 import com.kbait.anchack.place.config.PlaceConfig;
 import com.kbait.anchack.rental.config.MolitRentConfig;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kbait.anchack.ingestion.config.MolitRentConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -17,18 +19,19 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.web.client.RestTemplate;
 
 import javax.sql.DataSource;
 
 @Configuration
 @PropertySource(
-        value = "classpath:application.properties",
-        encoding = "UTF-8"
+    value = "classpath:application.properties",
+    encoding = "UTF-8"
 )
 @MapperScan("com.kbait.anchack.*.mapper")
 @ComponentScan(basePackages = {
-        "com.kbait.anchack.*.service",
-        "com.kbait.anchack.common.security"
+    "com.kbait.anchack.*.service",
+    "com.kbait.anchack.common.security"
 })
 @Import({
     MolitRentConfig.class,
@@ -80,36 +83,36 @@ public class RootConfig {
     public Flyway flyway(DataSource dataSource) {
 
         return Flyway.configure()
-                .dataSource(dataSource)
-                .baselineOnMigrate(true)
-                .baselineVersion("0")
-                .locations("classpath:db/migration")
-                .load();
+            .dataSource(dataSource)
+            .baselineOnMigrate(true)
+            .baselineVersion("0")
+            .locations("classpath:db/migration")
+            .load();
     }
 
     // MyBatis SqlSessionFactory 설정
     // Flyway 마이그레이션 이후 SqlSessionFactory가 생성되도록 순서를 보장
     @Bean
     public SqlSessionFactory sqlSessionFactory(
-            DataSource dataSource,
-            Flyway flyway
+        DataSource dataSource,
+        Flyway flyway
     ) throws Exception {
 
         SqlSessionFactoryBean factoryBean =
-                new SqlSessionFactoryBean();
+            new SqlSessionFactoryBean();
 
         factoryBean.setDataSource(dataSource);
 
         factoryBean.setConfigLocation(
-                applicationContext.getResource(
-                        "classpath:mybatis-config.xml"
-                )
+            applicationContext.getResource(
+                "classpath:mybatis-config.xml"
+            )
         );
 
         factoryBean.setMapperLocations(
-                applicationContext.getResources(
-                        "classpath*:mappers/**/*.xml"
-                )
+            applicationContext.getResources(
+                "classpath*:mappers/**/*.xml"
+            )
         );
 
         return factoryBean.getObject();
@@ -118,8 +121,20 @@ public class RootConfig {
     // 트랜잭션 관리자 설정
     @Bean
     public DataSourceTransactionManager transactionManager(
-            DataSource dataSource
+        DataSource dataSource
     ) {
         return new DataSourceTransactionManager(dataSource);
+    }
+
+    // 카카오 등 외부 API 호출에 사용하는 공용 RestTemplate
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+    // 카카오 API 응답(JSON) 파싱에 사용하는 공용 ObjectMapper
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }

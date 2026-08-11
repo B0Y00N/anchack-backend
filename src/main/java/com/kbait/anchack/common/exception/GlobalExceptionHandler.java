@@ -1,5 +1,7 @@
 package com.kbait.anchack.common.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -9,38 +11,39 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * [신규] 컨트롤러/서비스에서 발생하는 예외를 그대로 흘려보내면
- * 스택트레이스가 담긴 기본 500 에러 페이지가 프론트로 그대로 노출된다.
- * 클라이언트에는 일관된 JSON 에러 응답만 내려주고, 상세 원인은 서버 로그에만 남긴다.
+ * 모든 Controller의 예외를 한 곳에서 공통 JSON 응답으로 변환한다.
+ * 클라이언트에는 일관된 응답만 내려주고, 상세 원인(스택트레이스 등)은
+ * 서버 로그에만 남겨 내부 구현 정보가 노출되지 않도록 한다.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleBadRequest(IllegalArgumentException e) {
         return buildResponse(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
-    /*
-     * [수정] SecurityException(로그인 필요/권한 없음 등)이 별도 핸들러 없이
-     * 아래 RuntimeException 핸들러로 흘러가 502 Bad Gateway로 응답되고 있었다.
-     * ReviewController.getAuthenticatedUserId(), ReviewService.validateOwner(),
-     * ReviewService.validateAdmin() 등이 던지는 SecurityException은
-     * 인증(401)/인가(403) 문제이므로 그에 맞는 상태 코드로 응답해야 프론트가
-     * "로그인이 필요합니다" 같은 메시지를 정확히 처리할 수 있다.
-     */
-    @ExceptionHandler(SecurityException.class)
-    public ResponseEntity<Map<String, Object>> handleSecurityException(SecurityException e) {
-        String message = e.getMessage();
-        boolean isAuthRequired = message != null && message.contains("로그인이 필요");
-        HttpStatus status = isAuthRequired ? HttpStatus.UNAUTHORIZED : HttpStatus.FORBIDDEN;
-        return buildResponse(status, message);
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedException e) {
+        return buildResponse(HttpStatus.UNAUTHORIZED, e.getMessage());
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleForbidden(ForbiddenException e) {
+        return buildResponse(HttpStatus.FORBIDDEN, e.getMessage());
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(NotFoundException e) {
+        return buildResponse(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException e) {
-        // 카카오 API 연동 실패, DB 오류 등 상세 원인은 서버 로그로만 확인
-        e.printStackTrace();
+        // 카카오 API 연동 실패, DB 오류 등 상세 원인은 서버 로그로만 확인한다.
+        log.error("처리되지 않은 예외가 발생했습니다.", e);
         return buildResponse(HttpStatus.BAD_GATEWAY, "요청 처리 중 오류가 발생했습니다.");
     }
 
