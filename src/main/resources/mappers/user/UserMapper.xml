@@ -32,27 +32,8 @@
 
   </resultMap>
 
-  <!-- 소셜 로그인 제공자와 제공자 사용자 ID로 사용자를 조회한다. -->
-  <select id="findByProviderAndProviderId"
-          resultMap="userResultMap">
-
-    SELECT
-    user_id,
-    provider,
-    provider_id,
-    nickname,
-    profile_image_url,
-    email,
-    birth_date
-    FROM users
-    WHERE provider = #{provider}
-    AND provider_id = #{providerId}
-
-  </select>
-
   <!-- 사용자 ID로 사용자를 조회한다. -->
   <select id="findById"
-          parameterType="java.lang.Long"
           resultMap="userResultMap">
 
     SELECT
@@ -67,38 +48,6 @@
     WHERE user_id = #{userId}
 
   </select>
-
-  <!-- 새로운 사용자를 저장한다. -->
-  <insert id="insert"
-          parameterType="com.kbait.anchack.user.domain.User"
-          useGeneratedKeys="true"
-          keyProperty="id"
-          keyColumn="user_id">
-
-    INSERT INTO users (
-    provider,
-    provider_id,
-    nickname,
-    profile_image_url,
-    email,
-    birth_date,
-    created_at,
-    updated_at,
-    last_login_at
-    )
-    VALUES (
-    #{provider},
-    #{providerId},
-    #{nickname},
-    #{profileImageUrl},
-    #{email},
-    #{birthDate},
-    NOW(),
-    NOW(),
-    NOW()
-    )
-
-  </insert>
 
   <!-- 사용자가 마이페이지에서 프로필을 수정한다. -->
   <update id="updateProfile"
@@ -111,32 +60,6 @@
     profile_image_url = #{profileImageUrl},
     updated_at = NOW()
     WHERE user_id = #{id}
-
-  </update>
-
-  <!-- 소셜 로그인 시 사용자 정보를 최신 정보로 수정한다. -->
-  <update id="updateSocialProfile"
-          parameterType="com.kbait.anchack.user.domain.User">
-
-    UPDATE users
-    SET
-    nickname = #{nickname},
-    profile_image_url = #{profileImageUrl},
-    email = #{email},
-    birth_date = #{birthDate},
-    updated_at = NOW()
-    WHERE provider = #{provider}
-    AND provider_id = #{providerId}
-
-  </update>
-
-  <!-- 로그인 성공 시간을 갱신한다. -->
-  <update id="updateLastLoginAt"
-          parameterType="java.lang.Long">
-
-    UPDATE users
-    SET last_login_at = NOW()
-    WHERE user_id = #{userId}
 
   </update>
 
