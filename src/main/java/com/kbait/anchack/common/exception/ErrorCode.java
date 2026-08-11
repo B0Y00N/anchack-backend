@@ -8,6 +8,7 @@ import lombok.Getter;
 public enum ErrorCode {
 
     AUTH_UNAUTHORIZED("인증 정보가 없습니다."),
+    AUTH_FORBIDDEN("접근 권한이 없습니다."),
     COMMON_INVALID_REQUEST("요청 값이 올바르지 않습니다."),
     COMMON_INTERNAL_ERROR("요청 처리 중 오류가 발생했습니다.");
 

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.place.mapper.PlaceMapper">
+
+  <insert id="upsertBatch">
+    INSERT INTO places (
+      external_id,
+      admin_dong_id,
+      category,
+      name,
+      latitude,
+      longitude,
+      data_source_id
+    )
+    VALUES
+    <foreach collection="places" item="place" separator=",">
+      (
+        #{place.externalId},
+        #{place.adminDongId},
+        #{place.category},
+        #{place.name},
+        #{place.latitude},
+        #{place.longitude},
+        #{place.dataSourceId}
+      )
+    </foreach>
+    ON DUPLICATE KEY UPDATE
+      admin_dong_id = VALUES(admin_dong_id),
+      category = VALUES(category),
+      name = VALUES(name),
+      latitude = VALUES(latitude),
+      longitude = VALUES(longitude),
+      updated_at = CURRENT_TIMESTAMP
+  </insert>
+
+</mapper>

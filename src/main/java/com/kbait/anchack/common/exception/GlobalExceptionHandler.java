@@ -32,6 +32,24 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.COMMON_INVALID_REQUEST, e.getMessage());
     }
 
+    /*
+     * SecurityException(로그인 필요/권한 없음 등)이 별도 핸들러 없이 아래
+     * RuntimeException 핸들러로 흘러가 502로 응답되던 문제 수정.
+     * ReviewController.getAuthenticatedUserId(), ReviewService.validateOwner(),
+     * ReviewService.validateAdmin() 등이 던지는 SecurityException은
+     * 인증(401)/인가(403) 문제이므로 그에 맞는 상태 코드로 응답해야 프론트가
+     * "로그인이 필요합니다" 같은 메시지를 정확히 처리할 수 있다.
+     */
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSecurityException(SecurityException e) {
+        String message = e.getMessage();
+        boolean isAuthRequired = message != null && message.contains("로그인이 필요");
+        HttpStatus status = isAuthRequired ? HttpStatus.UNAUTHORIZED : HttpStatus.FORBIDDEN;
+        ErrorCode errorCode = isAuthRequired ? ErrorCode.AUTH_UNAUTHORIZED : ErrorCode.AUTH_FORBIDDEN;
+
+        return buildResponse(status, errorCode, message);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<Void>> handleRuntimeException(RuntimeException e) {
         // 상세 원인은 서버 로그로만 확인

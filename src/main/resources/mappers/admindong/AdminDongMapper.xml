@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.admindong.mapper.AdminDongMapper">
+
+  <resultMap id="adminDongResultMap"
+             type="com.kbait.anchack.admindong.domain.AdminDong">
+
+    <id property="adminDongId"
+        column="admin_dong_id"/>
+
+    <result property="guCode"
+            column="gu_code"/>
+
+    <result property="dongCode"
+            column="dong_code"/>
+
+    <result property="name"
+            column="name"/>
+
+    <result property="guName"
+            column="gu_name"/>
+
+    <result property="dongPopulation"
+            column="dong_population"/>
+
+    <result property="dongArea"
+            column="dong_area"/>
+
+    <result property="latitude"
+            column="latitude"/>
+
+    <result property="longitude"
+            column="longitude"/>
+
+  </resultMap>
+
+  <sql id="adminDongSelectColumns">
+    SELECT
+    ad.admin_dong_id,
+    ad.gu_code,
+    ad.dong_code,
+    ad.name,
+    g.name AS gu_name,
+    ad.dong_population,
+    ad.dong_area,
+    ad.latitude,
+    ad.longitude
+    FROM admin_dongs ad
+    INNER JOIN gus g
+    ON g.gu_code = ad.gu_code
+  </sql>
+
+  <select id="findByGuNameAndDongName"
+          resultMap="adminDongResultMap">
+
+    <include refid="adminDongSelectColumns"/>
+
+    WHERE g.name = #{guName}
+    AND ad.name = #{dongName}
+
+    LIMIT 1
+
+  </select>
+
+  <select id="findById"
+          resultMap="adminDongResultMap">
+
+    <include refid="adminDongSelectColumns"/>
+
+    WHERE ad.admin_dong_id = #{adminDongId}
+
+  </select>
+
+</mapper>
