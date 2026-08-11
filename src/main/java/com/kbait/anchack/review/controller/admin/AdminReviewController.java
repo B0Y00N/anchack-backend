@@ -1,5 +1,6 @@
 package com.kbait.anchack.review.controller.admin;
 
+import com.kbait.anchack.common.security.AuthenticatedUserResolver;
 import com.kbait.anchack.review.dto.request.AdminReviewStatusRequest;
 import com.kbait.anchack.review.dto.response.ReviewResponse;
 import com.kbait.anchack.review.service.ReviewService;

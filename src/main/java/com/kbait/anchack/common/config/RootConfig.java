@@ -2,6 +2,7 @@ package com.kbait.anchack.common.config;
 
 import com.kbait.anchack.place.config.PlaceConfig;
 import com.kbait.anchack.recommendation.config.RecommendationConfig;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kbait.anchack.rental.config.MolitRentConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -28,6 +29,7 @@ import javax.sql.DataSource;
 )
 @MapperScan("com.kbait.anchack.*.mapper")
 @ComponentScan(basePackages = {
+<<<<<<< HEAD
         "com.kbait.anchack.*.service",
         "com.kbait.anchack.common.security"
 })
@@ -35,6 +37,11 @@ import javax.sql.DataSource;
         MolitRentConfig.class,
         RecommendationConfig.class,
         PlaceConfig.class
+=======
+    "com.kbait.anchack.*.service",
+    "com.kbait.anchack.common.security",
+    "com.kbait.anchack.rental.client"
+>>>>>>> 8bd3436 (fix: 병합오류 수정)
 })
 @EnableTransactionManagement
 public class RootConfig {
