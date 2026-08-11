@@ -48,7 +48,7 @@ ALTER TABLE `gus` DROP INDEX `uq_gus_name`;
 
 UPDATE `places`
 SET `external_id` = SHA2(
-        CONCAT_WS('|', `data_source_id`, `category`, `name`, `latitude`, `longitude`),
+        CONCAT_WS('|', `data_source_id`, `category`, `name`, `latitude`, `longitude`, `place_id`),
         256
     )
 WHERE `external_id` IS NULL OR TRIM(`external_id`) = '';
