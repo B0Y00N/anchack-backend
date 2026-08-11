@@ -2,7 +2,7 @@ package com.kbait.anchack.recommendation.service;
 
 import com.kbait.anchack.recommendation.dto.AdminDongLocation;
 import com.kbait.anchack.recommendation.dto.RecommendationCandidate;
-import com.kbait.anchack.recommendation.mapper.AdminDongMapper;
+import com.kbait.anchack.recommendation.mapper.RecommendationAdminDongMapper;
 import com.kbait.anchack.route.dto.CommuteResult;
 import com.kbait.anchack.route.service.RouteService;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CommuteFilter {
 
-    private final AdminDongMapper adminDongMapper;
+    private final RecommendationAdminDongMapper adminDongMapper;
     private final RouteService routeService;
 
     public List<RecommendationCandidate> filter(

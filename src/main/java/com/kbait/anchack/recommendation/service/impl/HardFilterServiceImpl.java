@@ -2,7 +2,7 @@ package com.kbait.anchack.recommendation.service.impl;
 
 import com.kbait.anchack.recommendation.dto.ConditionBundle;
 import com.kbait.anchack.recommendation.dto.RecommendationCandidate;
-import com.kbait.anchack.recommendation.mapper.AdminDongMapper;
+import com.kbait.anchack.recommendation.mapper.RecommendationAdminDongMapper;
 import com.kbait.anchack.recommendation.service.CommuteFilter;
 import com.kbait.anchack.recommendation.service.EssentialInfraFilter;
 import com.kbait.anchack.recommendation.service.HardFilterService;
@@ -20,7 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class HardFilterServiceImpl implements HardFilterService {
 
-    private final AdminDongMapper adminDongMapper;
+    private final RecommendationAdminDongMapper adminDongMapper;
     private final EssentialInfraFilter essentialInfraFilter;
     private final HouseTypeBudgetFilter houseTypeBudgetFilter;
     private final CommuteFilter commuteFilter;
