@@ -70,7 +70,10 @@ MODIFY COLUMN `house_type`
         '다세대',
         '연립다세대',
         '단독',
-        '다가구'
+        '다가구',
+        '빌라',
+        '아파트',
+        '원룸'
     ) NOT NULL;
 
 ALTER TABLE `property_metrics`
@@ -81,7 +84,10 @@ MODIFY COLUMN `house_type`
         '다세대',
         '연립다세대',
         '단독',
-        '다가구'
+        '다가구',
+        '빌라',
+        '아파트',
+        '원룸'
     ) NOT NULL,
 MODIFY COLUMN `avg_rent` BIGINT NULL;
 
