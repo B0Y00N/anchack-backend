@@ -5,6 +5,8 @@ import com.kbait.anchack.place.cctv.converter.PublicCctvPlaceConverter;
 import com.kbait.anchack.place.cctv.parser.PublicCctvCsvParser;
 import com.kbait.anchack.place.cctv.service.CctvPlaceCollectionService;
 import com.kbait.anchack.place.cctv.service.CctvPlaceCollectionServiceImpl;
+import com.kbait.anchack.place.cctv.service.CctvPlaceIngestionService;
+import com.kbait.anchack.place.cctv.service.CctvPlaceIngestionServiceImpl;
 import com.kbait.anchack.place.client.KakaoPlaceApiClient;
 import com.kbait.anchack.place.client.KakaoPlaceCollectionTargetProvider;
 import com.kbait.anchack.place.mapper.PlaceAdminDongMapper;
@@ -14,6 +16,7 @@ import com.kbait.anchack.place.resolver.AdminDongBoundaryRepository;
 import com.kbait.anchack.place.resolver.GeoJsonAdminDongBoundaryRepository;
 import com.kbait.anchack.place.resolver.PlaceAdminDongResolver;
 import com.kbait.anchack.place.resolver.PlaceAdminDongResolverImpl;
+import com.kbait.anchack.place.service.PlaceWriteService;
 import com.kbait.anchack.place.validator.KakaoPlaceCategoryValidator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +44,21 @@ public class PlaceConfig {
             PublicCctvPlaceConverter placeConverter
     ) {
         return new CctvPlaceCollectionServiceImpl(csvParser, placeConverter);
+    }
+
+    @Bean
+    public CctvPlaceIngestionService cctvPlaceIngestionService(
+            CctvPlaceCollectionService collectionService,
+            PlaceNormalizer placeNormalizer,
+            PlaceAdminDongResolver placeAdminDongResolver,
+            PlaceWriteService placeWriteService
+    ) {
+        return new CctvPlaceIngestionServiceImpl(
+                collectionService,
+                placeNormalizer,
+                placeAdminDongResolver,
+                placeWriteService
+        );
     }
 
     @Bean
