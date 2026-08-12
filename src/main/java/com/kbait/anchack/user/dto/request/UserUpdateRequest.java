@@ -1,4 +1,4 @@
-package com.kbait.anchack.user.dto;
+package com.kbait.anchack.user.dto.request;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
