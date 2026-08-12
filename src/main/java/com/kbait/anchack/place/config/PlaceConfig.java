@@ -1,6 +1,10 @@
 package com.kbait.anchack.place.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kbait.anchack.place.cctv.converter.PublicCctvPlaceConverter;
+import com.kbait.anchack.place.cctv.parser.PublicCctvCsvParser;
+import com.kbait.anchack.place.cctv.service.CctvPlaceCollectionService;
+import com.kbait.anchack.place.cctv.service.CctvPlaceCollectionServiceImpl;
 import com.kbait.anchack.place.client.KakaoPlaceApiClient;
 import com.kbait.anchack.place.client.KakaoPlaceCollectionTargetProvider;
 import com.kbait.anchack.place.mapper.PlaceAdminDongMapper;
@@ -20,6 +24,24 @@ import org.springframework.web.client.RestTemplate;
 
 @Configuration
 public class PlaceConfig {
+
+    @Bean
+    public PublicCctvCsvParser publicCctvCsvParser() {
+        return new PublicCctvCsvParser();
+    }
+
+    @Bean
+    public PublicCctvPlaceConverter publicCctvPlaceConverter() {
+        return new PublicCctvPlaceConverter();
+    }
+
+    @Bean
+    public CctvPlaceCollectionService cctvPlaceCollectionService(
+            PublicCctvCsvParser csvParser,
+            PublicCctvPlaceConverter placeConverter
+    ) {
+        return new CctvPlaceCollectionServiceImpl(csvParser, placeConverter);
+    }
 
     @Bean
     public KakaoPlaceApiProperties kakaoPlaceApiProperties(
