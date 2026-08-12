@@ -70,7 +70,8 @@ public final class KakaoGeocodingClient {
         } catch (RestClientResponseException exception) {
             throw new KakaoRouteApiException(
                     "카카오 주소 검색 API 호출 실패: address=" + address
-                            + ", httpStatus=" + exception.getRawStatusCode());
+                            + ", httpStatus=" + exception.getRawStatusCode(),
+                    exception);
         } catch (RestClientException exception) {
             throw new KakaoRouteApiException(
                     "카카오 주소 검색 API 호출 실패: address=" + address, exception);

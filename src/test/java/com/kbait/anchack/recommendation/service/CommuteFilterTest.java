@@ -141,6 +141,22 @@ class CommuteFilterTest {
         assertThat(result).extracting(RecommendationCandidate::getAdminDongId).containsExactly(1L);
     }
 
+    @Test
+    void 목적지_geocoding_자체가_카카오_API_실패로_안되면_전체_후보를_통근정보_없이_통과시킨다() {
+        List<Long> candidates = List.of(1L, 2L);
+        when(routeService.geocode("목적지"))
+                .thenThrow(new KakaoRouteApiException("카카오 주소 검색 API 호출 실패: httpStatus=500"));
+
+        List<RecommendationCandidate> result = filter.filter(candidates, "목적지", "대중교통", 60, 2);
+
+        assertThat(result).extracting(RecommendationCandidate::getAdminDongId).containsExactly(1L, 2L);
+        assertThat(result).allSatisfy(candidate -> {
+            assertThat(candidate.getCommuteTime()).isNull();
+            assertThat(candidate.getTransferCount()).isNull();
+        });
+        verify(adminDongMapper, never()).findLocationsByIds(any());
+    }
+
     private AdminDongLocation location(Long adminDongId, String lat, String lng) {
         AdminDongLocation location = new AdminDongLocation();
         location.setAdminDongId(adminDongId);
