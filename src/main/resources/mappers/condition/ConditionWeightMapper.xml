@@ -6,10 +6,10 @@
 <mapper namespace="com.kbait.anchack.condition.mapper.ConditionWeightMapper">
 
   <insert id="insertBatch">
-    INSERT INTO condition_weights (condition_id2, category, importance)
+    INSERT INTO condition_weights (condition_id, category, importance)
     VALUES
     <foreach collection="rows" item="row" separator=",">
-      (#{row.conditionId2}, #{row.category}, #{row.importance})
+      (#{row.conditionId}, #{row.category}, #{row.importance})
     </foreach>
   </insert>
 

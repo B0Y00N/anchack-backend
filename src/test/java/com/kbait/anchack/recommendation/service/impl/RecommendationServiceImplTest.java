@@ -1,5 +1,7 @@
 package com.kbait.anchack.recommendation.service.impl;
 
+import com.kbait.anchack.admindong.domain.AdminDong;
+import com.kbait.anchack.admindong.mapper.AdminDongMapper;
 import com.kbait.anchack.recommendation.client.RecommendationReasonClient;
 import com.kbait.anchack.recommendation.dto.CategoryScoreBreakdown;
 import com.kbait.anchack.recommendation.dto.ConditionBundle;
@@ -47,6 +49,9 @@ class RecommendationServiceImplTest {
     @Mock
     private RecommendationScoreMapper recommendationScoreMapper;
 
+    @Mock
+    private AdminDongMapper adminDongMapper;
+
     private RecommendationServiceImpl service;
 
     @BeforeEach
@@ -56,10 +61,12 @@ class RecommendationServiceImplTest {
                 recommendationScoreCalculator,
                 recommendationReasonClient,
                 recommendationMapper,
-                recommendationScoreMapper);
+                recommendationScoreMapper,
+                adminDongMapper);
 
         when(hardFilterService.filter(any())).thenReturn(List.of(candidate(1L)));
         when(recommendationReasonClient.generate(any())).thenReturn(placeholderReason());
+        when(adminDongMapper.findById(any())).thenReturn(adminDong());
         mockInsertAssignsIds();
     }
 
@@ -133,6 +140,14 @@ class RecommendationServiceImplTest {
 
     private RecommendationCandidate candidate(Long adminDongId) {
         return RecommendationCandidate.builder().adminDongId(adminDongId).build();
+    }
+
+    private AdminDong adminDong() {
+        AdminDong adminDong = new AdminDong();
+        adminDong.setGuName("마포구");
+        adminDong.setName("서교동");
+
+        return adminDong;
     }
 
     private GeneratedReason placeholderReason() {

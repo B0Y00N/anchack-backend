@@ -7,6 +7,6 @@ import lombok.Getter;
 @Builder
 public class ConditionEssentialRow {
 
-    private Long conditionId2;
+    private Long conditionId;
     private String category;
 }
