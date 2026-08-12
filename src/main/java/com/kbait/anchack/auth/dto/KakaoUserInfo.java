@@ -3,7 +3,15 @@ package com.kbait.anchack.auth.dto;
 import java.io.Serializable;
 import java.time.LocalDate;
 
+/**
+ * 카카오 사용자 정보 API(GET /v2/user/me) 응답에서 필요한 값만 추출한 DTO.
+ *
+ * 카카오 API의 원본 JSON 구조를 그대로 노출하지 않고, 내부에서 필요한
+ * 필드만 담아 카카오 응답 형식이 바뀌어도 영향 범위를 이 클래스로 한정한다.
+ */
 public class KakaoUserInfo implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private Long id;
     private String nickname;
@@ -36,16 +44,6 @@ public class KakaoUserInfo implements Serializable {
 
     public void setProfileImage(String profileImage) {
         this.profileImage = profileImage;
-    }
-
-    // profileImage와 동일한 값을 반환
-    public String getProfileImageUrl() {
-        return profileImage;
-    }
-
-    // profileImage와 동일한 필드에 저장
-    public void setProfileImageUrl(String profileImageUrl) {
-        this.profileImage = profileImageUrl;
     }
 
     public String getEmail() {
