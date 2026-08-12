@@ -1,5 +1,6 @@
 package com.kbait.anchack.common.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kbait.anchack.place.config.PlaceConfig;
 import com.kbait.anchack.recommendation.config.RecommendationConfig;
 import com.kbait.anchack.rental.config.MolitRentConfig;
@@ -18,17 +19,21 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.web.client.RestTemplate;
 
 import javax.sql.DataSource;
 
 @Configuration
-@PropertySource("classpath:application.properties")
+@PropertySource(
+    value = "classpath:application.properties",
+    encoding = "UTF-8"
+)
+@MapperScan(basePackages = "com.kbait.anchack.*.mapper")
 @ComponentScan(basePackages = {
     "com.kbait.anchack.*.service",
     "com.kbait.anchack.common.security",
     "com.kbait.anchack.rental.client"
 })
-@MapperScan(basePackages = "com.kbait.anchack.*.mapper")
 @Import({
     PlaceConfig.class,
     RecommendationConfig.class,
@@ -91,14 +96,19 @@ public class RootConfig {
         DataSource dataSource,
         Flyway flyway
     ) throws Exception {
-        SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
+        SqlSessionFactoryBean factoryBean =
+            new SqlSessionFactoryBean();
 
         factoryBean.setDataSource(dataSource);
         factoryBean.setConfigLocation(
-            applicationContext.getResource("classpath:mybatis-config.xml")
+            applicationContext.getResource(
+                "classpath:mybatis-config.xml"
+            )
         );
         factoryBean.setMapperLocations(
-            applicationContext.getResources("classpath*:mappers/**/*.xml")
+            applicationContext.getResources(
+                "classpath*:mappers/**/*.xml"
+            )
         );
 
         return factoryBean.getObject();
@@ -110,5 +120,17 @@ public class RootConfig {
         DataSource dataSource
     ) {
         return new DataSourceTransactionManager(dataSource);
+    }
+
+    // 카카오 등 외부 API 호출에 사용하는 공용 RestTemplate
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+    // 카카오 API 응답(JSON) 파싱에 사용하는 공용 ObjectMapper
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }
