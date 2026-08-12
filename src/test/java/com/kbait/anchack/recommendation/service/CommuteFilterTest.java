@@ -5,6 +5,7 @@ import com.kbait.anchack.recommendation.dto.RecommendationCandidate;
 import com.kbait.anchack.recommendation.mapper.RecommendationAdminDongMapper;
 import com.kbait.anchack.route.dto.CommuteResult;
 import com.kbait.anchack.route.dto.Coordinates;
+import com.kbait.anchack.route.exception.KakaoRouteApiException;
 import com.kbait.anchack.route.exception.RouteNotFoundException;
 import com.kbait.anchack.route.service.RouteService;
 import org.junit.jupiter.api.BeforeEach;
@@ -101,6 +102,43 @@ class CommuteFilterTest {
         List<RecommendationCandidate> result = filter.filter(candidates, "목적지", "대중교통", 60, 2);
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void 카카오_API_호출이_실패한_후보는_제외되지_않고_통근정보_없이_포함된다() {
+        List<Long> candidates = List.of(1L, 2L);
+        when(routeService.geocode("목적지")).thenReturn(DEST);
+        when(adminDongMapper.findLocationsByIds(candidates)).thenReturn(List.of(
+                location(1L, "37.5", "127.0"),
+                location(2L, "37.55", "127.05")
+        ));
+        when(routeService.calculateCommute(eq(new BigDecimal("37.5")), any(), any(), any(), any()))
+                .thenReturn(CommuteResult.builder().commuteTime(20).transferCount(1).build());
+        when(routeService.calculateCommute(eq(new BigDecimal("37.55")), any(), any(), any(), any()))
+                .thenThrow(new KakaoRouteApiException("카카오 대중교통 길찾기 API 호출 실패: httpStatus=400"));
+
+        List<RecommendationCandidate> result = filter.filter(candidates, "목적지", "대중교통", 60, 2);
+
+        assertThat(result).extracting(RecommendationCandidate::getAdminDongId).containsExactlyInAnyOrder(1L, 2L);
+        RecommendationCandidate failed = result.stream()
+                .filter(candidate -> candidate.getAdminDongId().equals(2L))
+                .findFirst()
+                .orElseThrow();
+        assertThat(failed.getCommuteTime()).isNull();
+        assertThat(failed.getTransferCount()).isNull();
+    }
+
+    @Test
+    void 카카오_API_호출이_실패한_후보는_최대_통근시간_제한이_있어도_제외되지_않는다() {
+        List<Long> candidates = List.of(1L);
+        when(routeService.geocode("목적지")).thenReturn(DEST);
+        when(adminDongMapper.findLocationsByIds(candidates)).thenReturn(List.of(location(1L, "37.5", "127.0")));
+        when(routeService.calculateCommute(any(), any(), any(), any(), any()))
+                .thenThrow(new KakaoRouteApiException("카카오 대중교통 길찾기 API 호출 실패", new RuntimeException("network")));
+
+        List<RecommendationCandidate> result = filter.filter(candidates, "목적지", "대중교통", 60, 2);
+
+        assertThat(result).extracting(RecommendationCandidate::getAdminDongId).containsExactly(1L);
     }
 
     private AdminDongLocation location(Long adminDongId, String lat, String lng) {
