@@ -1,12 +1,16 @@
 package com.kbait.anchack.place.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kbait.anchack.place.cctv.client.CctvCsvDownloadClient;
+import com.kbait.anchack.place.cctv.config.CctvCsvDownloadProperties;
 import com.kbait.anchack.place.cctv.converter.PublicCctvPlaceConverter;
 import com.kbait.anchack.place.cctv.parser.PublicCctvCsvParser;
 import com.kbait.anchack.place.cctv.service.CctvPlaceCollectionService;
 import com.kbait.anchack.place.cctv.service.CctvPlaceCollectionServiceImpl;
 import com.kbait.anchack.place.cctv.service.CctvPlaceIngestionService;
 import com.kbait.anchack.place.cctv.service.CctvPlaceIngestionServiceImpl;
+import com.kbait.anchack.place.cctv.service.CctvPlaceIngestionRunner;
+import com.kbait.anchack.place.cctv.service.CctvPlaceIngestionRunnerImpl;
 import com.kbait.anchack.place.client.KakaoPlaceApiClient;
 import com.kbait.anchack.place.client.KakaoPlaceCollectionTargetProvider;
 import com.kbait.anchack.place.mapper.PlaceAdminDongMapper;
@@ -25,8 +29,50 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.http.HttpClient;
+import java.time.Duration;
+
 @Configuration
 public class PlaceConfig {
+
+    @Bean
+    public CctvCsvDownloadProperties cctvCsvDownloadProperties(
+            @Value("${cctv.csv.validation-url:https://file.localdata.go.kr/file/validate/download-count}") String validationUrl,
+            @Value("${cctv.csv.download-url:https://file.localdata.go.kr/file/download/cctv_info/info?orgCode=6110000_ALL}") String downloadUrl,
+            @Value("${cctv.csv.referer:https://file.localdata.go.kr/file/cctv_info/info}") String referer,
+            @Value("${cctv.csv.user-agent:Anchack-CCTV-Collector/1.0}") String userAgent,
+            @Value("${cctv.csv.connect-timeout-ms:5000}") int connectTimeoutMs,
+            @Value("${cctv.csv.request-timeout-ms:30000}") int requestTimeoutMs
+    ) {
+        return new CctvCsvDownloadProperties(
+                validationUrl,
+                downloadUrl,
+                referer,
+                userAgent,
+                connectTimeoutMs,
+                requestTimeoutMs
+        );
+    }
+
+    @Bean(name = "cctvCsvHttpClient")
+    public HttpClient cctvCsvHttpClient(CctvCsvDownloadProperties properties) {
+        CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER);
+
+        return HttpClient.newBuilder()
+                .cookieHandler(cookieManager)
+                .connectTimeout(Duration.ofMillis(properties.getConnectTimeoutMs()))
+                .build();
+    }
+
+    @Bean
+    public CctvCsvDownloadClient cctvCsvDownloadClient(
+            @Qualifier("cctvCsvHttpClient") HttpClient httpClient,
+            CctvCsvDownloadProperties properties
+    ) {
+        return new CctvCsvDownloadClient(httpClient, properties);
+    }
 
     @Bean
     public PublicCctvCsvParser publicCctvCsvParser() {
@@ -59,6 +105,14 @@ public class PlaceConfig {
                 placeAdminDongResolver,
                 placeWriteService
         );
+    }
+
+    @Bean
+    public CctvPlaceIngestionRunner cctvPlaceIngestionRunner(
+            CctvCsvDownloadClient csvDownloadClient,
+            CctvPlaceIngestionService ingestionService
+    ) {
+        return new CctvPlaceIngestionRunnerImpl(csvDownloadClient, ingestionService);
     }
 
     @Bean
