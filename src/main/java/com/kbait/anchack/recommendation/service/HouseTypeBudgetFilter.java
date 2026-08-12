@@ -62,7 +62,7 @@ public class HouseTypeBudgetFilter {
             BigDecimal minArea
     ) {
         boolean depositOk = maxDeposit == null || row.getAvgDeposit() <= maxDeposit;
-        boolean rentOk = maxRent == null || row.getAvgRent() <= maxRent;
+        boolean rentOk = maxRent == null || (row.getAvgRent() != null && row.getAvgRent() <= maxRent);
         boolean areaOk = minArea == null || row.getAvgArea().compareTo(minArea) >= 0;
 
         return depositOk && rentOk && areaOk;
