@@ -62,27 +62,39 @@ ALTER TABLE `places`
 -- house_type enum policy
 -- =====================================================================
 
-UPDATE `preferred_house_types`
-SET `house_type` = '연립'
-WHERE `house_type` = '빌라' OR `house_type` = '연립다세대';
-
-UPDATE `property_metrics`
-SET `house_type` = '연립'
-WHERE `house_type` = '빌라' OR `house_type` = '연립다세대';
-
-UPDATE `rental_transactions`
-SET `house_type` = '연립'
-WHERE `house_type` = '빌라' OR `house_type` = '연립다세대';
-
 ALTER TABLE `preferred_house_types`
-    MODIFY COLUMN `house_type` ENUM('오피스텔', '연립', '다세대', '단독', '다가구') NOT NULL;
+MODIFY COLUMN `house_type`
+    ENUM(
+        '오피스텔',
+        '연립',
+        '다세대',
+        '연립다세대',
+        '단독',
+        '다가구'
+    ) NOT NULL;
 
 ALTER TABLE `property_metrics`
-    MODIFY COLUMN `house_type` ENUM('오피스텔', '연립', '다세대', '단독', '다가구') NOT NULL,
-    MODIFY COLUMN `avg_rent` BIGINT NULL;
+MODIFY COLUMN `house_type`
+    ENUM(
+        '오피스텔',
+        '연립',
+        '다세대',
+        '연립다세대',
+        '단독',
+        '다가구'
+    ) NOT NULL,
+MODIFY COLUMN `avg_rent` BIGINT NULL;
 
 ALTER TABLE `rental_transactions`
-    MODIFY COLUMN `house_type` ENUM('오피스텔', '연립', '다세대', '단독', '다가구') NOT NULL;
+MODIFY COLUMN `house_type`
+    ENUM(
+        '오피스텔',
+        '연립',
+        '다세대',
+        '연립다세대',
+        '단독',
+        '다가구'
+    ) NOT NULL;
 
 -- =====================================================================
 -- rental_transactions
