@@ -1,5 +1,6 @@
 package com.kbait.anchack.rental.mapper;
 
+import com.kbait.anchack.rental.domain.RentalTransaction;
 import com.kbait.anchack.rental.domain.RentalTransactionCategoryCounts;
 import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.io.Resources;
@@ -13,7 +14,9 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,13 +81,42 @@ class RentalTransactionMapperXmlTest {
     }
 
     @Test
-    void 건수_조회는_여섯_house_type만_API_유형별로_집계한다() {
+    void 건수_조회는_V7_house_type만_API_유형별로_집계한다() {
         String sql = getNormalizedFindCountsSql();
 
         assertThat(sql)
                 .contains("house_type = '오피스텔'")
                 .contains("house_type IN ('연립', '다세대', '연립다세대')")
                 .contains("house_type IN ('단독', '다가구')");
+    }
+
+    @Test
+    void INSERT는_V7_금액과_임대유형_컬럼만_사용한다() {
+        String sql = configuration.getMappedStatement(MAPPER_NAMESPACE + ".insertBatch")
+                .getBoundSql(Map.of("transactions", List.of(rentalTransaction())))
+                .getSql()
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        assertThat(sql)
+                .contains("rental_type")
+                .contains("deposit_amount")
+                .contains("monthly_rent_amount")
+                .doesNotContain("maintenance_fee");
+    }
+
+    private RentalTransaction rentalTransaction() {
+        return RentalTransaction.builder()
+                .adminDongId(null)
+                .guCode("11620")
+                .legalDongName("신림동")
+                .rentalType("월세")
+                .transactionDate(LocalDate.of(2026, 6, 17))
+                .houseType("다세대")
+                .area(new BigDecimal("45.53"))
+                .depositAmount(22_422L)
+                .monthlyRentAmount(31)
+                .build();
     }
 
     private MappedStatement getFindCountsMappedStatement() {

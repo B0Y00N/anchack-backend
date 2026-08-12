@@ -38,12 +38,12 @@
       admin_dong_id,
       gu_code,
       legal_dong_name,
+      rental_type,
       transaction_date,
       house_type,
       area,
-      deposit,
-      rent,
-      maintenance_fee
+      deposit_amount,
+      monthly_rent_amount
     )
     VALUES
     <foreach collection="transactions" item="transaction" separator=",">
@@ -51,12 +51,12 @@
         #{transaction.adminDongId,jdbcType=BIGINT},
         #{transaction.guCode},
         #{transaction.legalDongName},
+        #{transaction.rentalType},
         #{transaction.transactionDate},
         #{transaction.houseType},
         #{transaction.area},
-        #{transaction.deposit},
-        #{transaction.rent},
-        #{transaction.maintenanceFee}
+        #{transaction.depositAmount},
+        #{transaction.monthlyRentAmount}
       )
     </foreach>
   </insert>

@@ -429,12 +429,12 @@ class MolitRentIngestionServiceTest {
                 .adminDongId(null)
                 .guCode(GU_CODE)
                 .legalDongName("법정동-" + sequence)
+                .rentalType("월세")
                 .transactionDate(LocalDate.of(2026, 6, sequence))
                 .houseType(normalizedHouseType(apiCategory))
                 .area(new BigDecimal("40." + sequence))
-                .deposit(10_000L + sequence)
-                .rent(sequence)
-                .maintenanceFee(0)
+                .depositAmount(10_000L + sequence)
+                .monthlyRentAmount(sequence)
                 .build();
     }
 

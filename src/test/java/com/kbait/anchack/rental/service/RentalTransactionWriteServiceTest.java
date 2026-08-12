@@ -473,12 +473,12 @@ class RentalTransactionWriteServiceTest {
                         .adminDongId(null)
                         .guCode(GU_CODE)
                         .legalDongName("신림동")
+                        .rentalType("월세")
                         .transactionDate(LocalDate.of(2026, 6, 17))
                         .houseType("다세대")
                         .area(new BigDecimal("45.53"))
-                        .deposit(index)
-                        .rent(31L)
-                        .maintenanceFee(0)
+                        .depositAmount(index)
+                        .monthlyRentAmount(31)
                         .build())
                 .toList();
     }
@@ -489,7 +489,7 @@ class RentalTransactionWriteServiceTest {
                 .toList();
 
         assertThat(transactions)
-                .extracting(RentalTransaction::getDeposit)
+                .extracting(RentalTransaction::getDepositAmount)
                 .containsExactlyElementsOf(expectedDeposits);
     }
 
