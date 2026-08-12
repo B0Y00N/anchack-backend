@@ -116,6 +116,7 @@ docker compose logs flyway
 | 앱은 잘 뜨는데 카카오 로그인(`/api/auth/kakao/callback`)만 안 됨 | `.env`에 `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET` / `KAKAO_REDIRECT_URI`가 비어 있으면 앱 자체는 조용히 잘 뜨지만 카카오 로그인만 실패함. `.env`에 카카오 개발자 콘솔에서 발급받은 값을 채우고 `docker compose up --build`로 재기동하면 해결됨 (3번 항목 참고) |
 | 로그인 시도하면 `JWT_SECRET 환경변수가 설정되지 않았습니다` 또는 `JWT_SECRET은 최소 32바이트...` 에러 | `.env`의 `JWT_SECRET`이 비어 있거나 32바이트 미만. `openssl rand -base64 32`로 생성해서 채우고 재기동 (3번 항목 참고) |
 | `flyway`가 `Validate failed: Migration checksum mismatch for migration version 1` 에러로 실패 | 예전에 이 프로젝트를 이미 한 번 세팅해서 V1 마이그레이션을 적용한 적이 있는데, 그 뒤 `V1__init_schema.sql` 내용이 수정된 경우(파일명은 같아도 체크섬이 달라짐). `docker compose down -v` 로 로컬 DB 볼륨을 통째로 지우고 `docker compose up --build`로 처음부터 다시 적용하면 해결됨 |
+| `.env`에 `RECOMMENDATION_REASON_MODE=openai`로 바꿨는데 `recommendationReason`/`caution`이 계속 "추후 openai api 호출" 고정 문구로 나옴 | `OPENAI_PROXY_TOKEN`이 비어 있으면 OpenAI 프록시 호출이 조용히 실패하고 플레이스홀더로 폴백함(에러가 눈에 안 보임 — 전체 추천 요청 자체는 정상 200 응답). 프록시 대시보드에서 발급받은 팀 토큰을 `.env`의 `OPENAI_PROXY_TOKEN`에 채우고 재기동 |
 
 ## 7. 스택 종료
 

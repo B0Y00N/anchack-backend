@@ -106,8 +106,8 @@
         "rank": 1,
         "commuteTime": null,
         "transferCount": null,
-        "recommendationReason": "추후 openai api 호출",
-        "caution": "추후 openai api 호출"
+        "recommendationReason": "편의시설이 많아요, 조용한 분위기가 있어요, 범죄율이 낮아요",
+        "caution": "대중교통 접근성이 떨어질 수 있어요, 상권과 거리가 있어요"
       }
     ]
   },
@@ -123,7 +123,7 @@
 | `recommendations[].totalScore` | 0~100 |
 | `recommendations[].dataCoverageRate` | 0~100(%). 선택한 우선순위 카테고리 중 실제 데이터가 있었던 비율 |
 | `recommendations[].commuteTime` / `transferCount` | `destAddress`를 안 보냈으면 `null` |
-| `recommendations[].recommendationReason` / `caution` | 현재는 OpenAI 연동 전이라 고정 문구 |
+| `recommendations[].recommendationReason` / `caution` | OpenAI(프록시)로 생성한 문장. 각각 쉼표로 구분된 짧은 문구 1~3개. 서버가 stub 모드로 떠 있으면(배포 환경에 따라 다름) 대신 고정 문구("추후 openai api 호출")가 내려올 수 있음 |
 
 ### Response — 실패
 
@@ -148,10 +148,3 @@
 
 - 표시용 행정동 정보(이름/구/좌표 등) 조회 API — 별도 도메인에서 추후 제공
 - 조건 "저장"(제목 입력 + `is_saved=true` 전환) API
-- `recommendationReason`/`caution`을 실제 OpenAI 연동 결과로 대체
-- ⚠️ **`destAddress`를 값 있는 문자열로 보내면 현재 500 에러가 남**: 통근 계산(`route`
-  도메인)이 아직 실제 API 연동 전 스텁(`UnsupportedOperationException`)이라, `destAddress`가
-  `null`/빈 문자열이 아닌 순간 서버 오류가 발생한다. 그래서 지금은 **`destAddress`를 항상
-  `null`로 보내고 `guCodes`(또는 빈 배열)만 쓰는 시나리오만 동작**한다. `route` 실제 연동
-  전까지는 프론트에서 "주소를 알고 있어요" 탭을 막아두거나, 최소한 이 상태를 인지하고
-  테스트해야 함
