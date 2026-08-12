@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.review.mapper.ReviewReactionMapper">
+
+  <resultMap id="reviewReactionResultMap"
+             type="com.kbait.anchack.review.domain.ReviewReaction">
+
+    <id property="reactionId"
+        column="reaction_id"/>
+
+    <result property="reviewId"
+            column="review_id"/>
+
+    <result property="userId"
+            column="user_id"/>
+
+    <result property="reactionType"
+            column="reaction_type"/>
+
+    <result property="createdAt"
+            column="created_at"/>
+
+  </resultMap>
+
+  <select id="findByReviewAndUser"
+          resultMap="reviewReactionResultMap">
+
+    SELECT
+    reaction_id,
+    review_id,
+    user_id,
+    reaction_type,
+    created_at
+    FROM review_reactions
+    WHERE review_id = #{reviewId}
+    AND user_id = #{userId}
+
+  </select>
+
+  <insert id="insertReaction"
+          useGeneratedKeys="true"
+          keyProperty="reactionId"
+          keyColumn="reaction_id">
+
+    INSERT INTO review_reactions (
+    review_id,
+    user_id,
+    reaction_type,
+    created_at
+    )
+    VALUES (
+    #{reviewId},
+    #{userId},
+    #{reactionType},
+    CURRENT_TIMESTAMP
+    )
+
+  </insert>
+
+  <update id="updateReactionType">
+
+    UPDATE review_reactions
+    SET reaction_type = #{reactionType}
+    WHERE reaction_id = #{reactionId}
+
+  </update>
+
+  <delete id="deleteReaction">
+
+    DELETE FROM review_reactions
+    WHERE reaction_id = #{reactionId}
+
+  </delete>
+
+  <select id="countByReviewId"
+          resultType="java.util.HashMap">
+
+    SELECT
+    review_id AS reviewId,
+    SUM(CASE WHEN reaction_type = 'LIKE' THEN 1 ELSE 0 END) AS likeCount,
+    SUM(CASE WHEN reaction_type = 'DISLIKE' THEN 1 ELSE 0 END) AS dislikeCount
+    FROM review_reactions
+    WHERE review_id = #{reviewId}
+    GROUP BY review_id
+
+  </select>
+
+  <select id="countByReviewIds"
+          resultType="java.util.HashMap">
+
+    SELECT
+    review_id AS reviewId,
+    SUM(CASE WHEN reaction_type = 'LIKE' THEN 1 ELSE 0 END) AS likeCount,
+    SUM(CASE WHEN reaction_type = 'DISLIKE' THEN 1 ELSE 0 END) AS dislikeCount
+    FROM review_reactions
+    WHERE review_id IN
+    <foreach item="reviewId" collection="reviewIds" open="(" separator="," close=")">
+      #{reviewId}
+    </foreach>
+    GROUP BY review_id
+
+  </select>
+
+  <select id="findByReviewIdsAndUser"
+          resultMap="reviewReactionResultMap">
+
+    SELECT
+    reaction_id,
+    review_id,
+    user_id,
+    reaction_type,
+    created_at
+    FROM review_reactions
+    WHERE user_id = #{userId}
+    AND review_id IN
+    <foreach item="reviewId" collection="reviewIds" open="(" separator="," close=")">
+      #{reviewId}
+    </foreach>
+
+  </select>
+
+</mapper>

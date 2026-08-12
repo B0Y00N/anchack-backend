@@ -1,9 +1,8 @@
 package com.kbait.anchack.common.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kbait.anchack.place.config.PlaceConfig;
 import com.kbait.anchack.recommendation.config.RecommendationConfig;
-import com.kbait.anchack.rental.config.MolitRentConfig;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kbait.anchack.rental.config.MolitRentConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -29,15 +28,16 @@ import javax.sql.DataSource;
     value = "classpath:application.properties",
     encoding = "UTF-8"
 )
-@MapperScan("com.kbait.anchack.*.mapper")
+@MapperScan(basePackages = "com.kbait.anchack.*.mapper")
 @ComponentScan(basePackages = {
     "com.kbait.anchack.*.service",
-    "com.kbait.anchack.common.security"
+    "com.kbait.anchack.common.security",
+    "com.kbait.anchack.rental.client"
 })
 @Import({
-        MolitRentConfig.class,
-        RecommendationConfig.class,
-        PlaceConfig.class
+    PlaceConfig.class,
+    RecommendationConfig.class,
+    MolitRentConfig.class
 })
 @EnableTransactionManagement
 public class RootConfig {
@@ -63,7 +63,6 @@ public class RootConfig {
     // HikariCP DataSource 설정
     @Bean
     public DataSource dataSource() {
-
         HikariConfig config = new HikariConfig();
 
         config.setDriverClassName(driver);
@@ -83,7 +82,6 @@ public class RootConfig {
     // Flyway 데이터베이스 마이그레이션 설정
     @Bean(initMethod = "migrate")
     public Flyway flyway(DataSource dataSource) {
-
         return Flyway.configure()
             .dataSource(dataSource)
             .baselineOnMigrate(true)
@@ -92,25 +90,21 @@ public class RootConfig {
             .load();
     }
 
-    // MyBatis SqlSessionFactory 설정
-    // Flyway 마이그레이션 이후 SqlSessionFactory가 생성되도록 순서를 보장
+    // Flyway 실행 이후 SqlSessionFactory 생성
     @Bean
     public SqlSessionFactory sqlSessionFactory(
         DataSource dataSource,
         Flyway flyway
     ) throws Exception {
-
         SqlSessionFactoryBean factoryBean =
             new SqlSessionFactoryBean();
 
         factoryBean.setDataSource(dataSource);
-
         factoryBean.setConfigLocation(
             applicationContext.getResource(
                 "classpath:mybatis-config.xml"
             )
         );
-
         factoryBean.setMapperLocations(
             applicationContext.getResources(
                 "classpath*:mappers/**/*.xml"
