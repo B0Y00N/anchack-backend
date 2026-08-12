@@ -142,7 +142,7 @@ public class ConditionServiceImpl implements ConditionService {
     private void insertWeights(Long conditionId, Map<String, BigDecimal> categoryWeights) {
         List<ConditionWeightRow> rows = categoryWeights.entrySet().stream()
                 .map(entry -> ConditionWeightRow.builder()
-                        .conditionId2(conditionId)
+                        .conditionId(conditionId)
                         .category(entry.getKey())
                         .importance(entry.getValue())
                         .build())
@@ -158,7 +158,7 @@ public class ConditionServiceImpl implements ConditionService {
 
         List<ConditionEssentialRow> rows = essentialCategories.stream()
                 .map(code -> ConditionEssentialRow.builder()
-                        .conditionId2(conditionId)
+                        .conditionId(conditionId)
                         .category(translateOrThrow(ESSENTIAL_CATEGORY_CODES, code))
                         .build())
                 .toList();

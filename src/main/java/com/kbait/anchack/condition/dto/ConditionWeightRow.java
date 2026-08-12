@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 @Builder
 public class ConditionWeightRow {
 
-    private Long conditionId2;
+    private Long conditionId;
     private String category;
     private BigDecimal importance;
 }
