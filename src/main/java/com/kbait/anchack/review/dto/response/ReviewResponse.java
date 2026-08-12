@@ -28,9 +28,9 @@ public class ReviewResponse {
 
     private Map<String, Integer> categoryScores;
 
-    private long likeCount;
-    private long dislikeCount;
-    private String myReaction;
+//    private long likeCount;
+//    private long dislikeCount;
+//    private String myReaction;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -53,9 +53,9 @@ public class ReviewResponse {
             ? Collections.emptyMap()
             : review.getCategoryScores();
 
-        response.likeCount = review.getLikeCount();
-        response.dislikeCount = review.getDislikeCount();
-        response.myReaction = review.getMyReaction();
+//        response.likeCount = review.getLikeCount();
+//        response.dislikeCount = review.getDislikeCount();
+//        response.myReaction = review.getMyReaction();
 
         response.createdAt = review.getCreatedAt();
         response.updatedAt = review.getUpdatedAt();
