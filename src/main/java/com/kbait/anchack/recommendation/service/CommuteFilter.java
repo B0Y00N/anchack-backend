@@ -9,6 +9,8 @@ import com.kbait.anchack.route.exception.KakaoRouteApiException;
 import com.kbait.anchack.route.exception.RouteNotFoundException;
 import com.kbait.anchack.route.service.RouteService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -47,6 +49,8 @@ import java.util.concurrent.Executors;
 @RequiredArgsConstructor
 public class CommuteFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(CommuteFilter.class);
+
     private static final int COMMUTE_CALL_CONCURRENCY = 10;
 
     private final RecommendationAdminDongMapper adminDongMapper;
@@ -69,6 +73,8 @@ public class CommuteFilter {
         } catch (KakaoRouteApiException e) {
             // 목적지 좌표를 못 구하면 후보별 통근 계산 자체가 불가능하다. AddressNotFoundException(사용자
             // 입력 오류)과 달리 이건 카카오 쪽 장애이므로 요청을 실패시키지 않고 통근 정보 없이 진행한다.
+            log.warn("목적지 geocoding 실패, 통근 정보 없이 진행: destAddress={}, message={}",
+                    destAddress, e.getMessage());
             return passThroughWithoutCommuteInfo(candidateAdminDongIds);
         }
 
@@ -132,9 +138,8 @@ public class CommuteFilter {
         } catch (RouteNotFoundException e) {
             return null;
         } catch (KakaoRouteApiException e) {
-            System.err.println("[CommuteFilter] 통근 계산 실패: adminDongId=" + location.getAdminDongId()
-                    + ", lat=" + location.getLatitude() + ", lng=" + location.getLongitude()
-                    + ", message=" + e.getMessage());
+            log.warn("통근 계산 실패, 통근 정보 없이 포함: adminDongId={}, lat={}, lng={}, message={}",
+                    location.getAdminDongId(), location.getLatitude(), location.getLongitude(), e.getMessage());
             return RecommendationCandidate.builder()
                     .adminDongId(location.getAdminDongId())
                     .build();

@@ -7,6 +7,8 @@ import com.kbait.anchack.recommendation.dto.GeneratedReason;
 import com.kbait.anchack.recommendation.dto.RecommendationReasonContext;
 import com.kbait.anchack.recommendation.exception.OpenAiApiException;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Comparator;
 import java.util.List;
@@ -24,6 +26,8 @@ import java.util.stream.Collectors;
  */
 @RequiredArgsConstructor
 public class OpenAiRecommendationReasonClient implements RecommendationReasonClient {
+
+    private static final Logger log = LoggerFactory.getLogger(OpenAiRecommendationReasonClient.class);
 
     private static final String PLACEHOLDER = "추후 openai api 호출";
     private static final String REASON_PREFIX = "추천 이유:";
@@ -49,7 +53,13 @@ public class OpenAiRecommendationReasonClient implements RecommendationReasonCli
             String content = openAiProxyClient.chat(buildPrompt(context));
 
             return parse(content);
-        } catch (OpenAiApiException | IllegalStateException e) {
+        } catch (OpenAiApiException e) {
+            log.warn("OpenAI 프록시 호출 실패, 플레이스홀더로 대체: adminDongId={}, message={}",
+                    context.getAdminDongId(), e.getMessage());
+            return placeholder();
+        } catch (IllegalStateException e) {
+            log.warn("OpenAI 응답 형식이 예상과 달라 플레이스홀더로 대체: adminDongId={}, message={}",
+                    context.getAdminDongId(), e.getMessage());
             return placeholder();
         }
     }
