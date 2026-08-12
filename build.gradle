@@ -34,9 +34,13 @@ ext {
     jacksonVersion = '2.17.2'
     lombokVersion = '1.18.30'
     jjwtVersion = '0.12.6'
+    commonsCsvVersion = '1.14.1'
 }
 
 dependencies {
+    // CSV
+    implementation "org.apache.commons:commons-csv:${commonsCsvVersion}"
+
     // Spring Legacy
     implementation "org.springframework:spring-context:${springVersion}"
     implementation "org.springframework:spring-webmvc:${springVersion}"

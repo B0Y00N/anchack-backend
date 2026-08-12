@@ -281,7 +281,6 @@ class MolitRentIngestionFlowTest {
         assertThat(transactions).allSatisfy(transaction -> {
             assertThat(transaction.getGuCode()).isEqualTo(GU_CODE);
             assertThat(transaction.getAdminDongId()).isNull();
-            assertThat(transaction.getMaintenanceFee()).isZero();
             assertThat(transaction.getArea().scale()).isEqualTo(2);
         });
     }
@@ -301,20 +300,23 @@ class MolitRentIngestionFlowTest {
     private void assertRepresentativeTransactions(List<RentalTransaction> transactions) {
         RentalTransaction firstOfficetel = transactions.get(0);
         assertThat(firstOfficetel.getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 29));
-        assertThat(firstOfficetel.getDeposit()).isEqualTo(4_000L).isNotEqualTo(40_000_000L);
-        assertThat(firstOfficetel.getRent()).isEqualTo(64L).isNotEqualTo(640_000L);
+        assertThat(firstOfficetel.getDepositAmount()).isEqualTo(4_000L).isNotEqualTo(40_000_000L);
+        assertThat(firstOfficetel.getMonthlyRentAmount()).isEqualTo(64).isNotEqualTo(640_000);
+        assertThat(firstOfficetel.getRentalType()).isEqualTo("월세");
         assertThat(firstOfficetel.getArea()).isEqualByComparingTo("16.34");
 
         RentalTransaction firstRowHouse = transactions.get(100);
         assertThat(firstRowHouse.getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 17));
-        assertThat(firstRowHouse.getDeposit()).isEqualTo(22_422L).isNotEqualTo(224_220_000L);
-        assertThat(firstRowHouse.getRent()).isEqualTo(31L).isNotEqualTo(310_000L);
+        assertThat(firstRowHouse.getDepositAmount()).isEqualTo(22_422L).isNotEqualTo(224_220_000L);
+        assertThat(firstRowHouse.getMonthlyRentAmount()).isEqualTo(31).isNotEqualTo(310_000);
+        assertThat(firstRowHouse.getRentalType()).isEqualTo("월세");
         assertThat(firstRowHouse.getArea()).isEqualByComparingTo("45.53");
 
         RentalTransaction firstSingleHouse = transactions.get(200);
         assertThat(firstSingleHouse.getTransactionDate()).isEqualTo(LocalDate.of(2026, 6, 16));
-        assertThat(firstSingleHouse.getDeposit()).isEqualTo(12_500L).isNotEqualTo(125_000_000L);
-        assertThat(firstSingleHouse.getRent()).isEqualTo(10L).isNotEqualTo(100_000L);
+        assertThat(firstSingleHouse.getDepositAmount()).isEqualTo(12_500L).isNotEqualTo(125_000_000L);
+        assertThat(firstSingleHouse.getMonthlyRentAmount()).isEqualTo(10).isNotEqualTo(100_000);
+        assertThat(firstSingleHouse.getRentalType()).isEqualTo("월세");
         assertThat(firstSingleHouse.getArea()).isEqualByComparingTo("20.00");
     }
 

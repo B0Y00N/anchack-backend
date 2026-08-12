@@ -72,7 +72,7 @@ class RentalTransactionNormalizerTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"연립", "다세대", "연립다세대"})
-    void 연립_다세대_API의_허용된_주택유형을_보존한다(String houseType) {
+    void 연립_다세대_API의_허용된_주택유형을_원본_그대로_보존한다(String houseType) {
         RawRentalTransaction rawTransaction = validTransactionBuilder(MolitRentApiCategory.ROW_HOUSE)
                 .houseType(houseType)
                 .build();
@@ -103,20 +103,32 @@ class RentalTransactionNormalizerTest {
 
         RentalTransaction result = normalizer.normalize(rawTransaction);
 
-        assertThat(result.getDeposit()).isEqualTo(22_422L);
-        assertThat(result.getRent()).isEqualTo(31L);
-        assertThat(result.getDeposit()).isNotEqualTo(224_220_000L);
-        assertThat(result.getRent()).isNotEqualTo(310_000L);
+        assertThat(result.getDepositAmount()).isEqualTo(22_422L);
+        assertThat(result.getMonthlyRentAmount()).isEqualTo(31);
+        assertThat(result.getRentalType()).isEqualTo("월세");
+        assertThat(result.getDepositAmount()).isNotEqualTo(224_220_000L);
+        assertThat(result.getMonthlyRentAmount()).isNotEqualTo(310_000);
     }
 
     @Test
-    void DB에서_생성하거나_제공하지_않는_필드는_정해진_값으로_매핑한다() {
+    void 월세가_0이면_전세로_판정한다() {
+        RawRentalTransaction rawTransaction = validTransactionBuilder(MolitRentApiCategory.ROW_HOUSE)
+                .monthlyRent("0")
+                .build();
+
+        RentalTransaction result = normalizer.normalize(rawTransaction);
+
+        assertThat(result.getMonthlyRentAmount()).isZero();
+        assertThat(result.getRentalType()).isEqualTo("전세");
+    }
+
+    @Test
+    void DB에서_제공하지_않는_admin_dong_ID는_null로_매핑한다() {
         RawRentalTransaction rawTransaction = validTransactionBuilder(MolitRentApiCategory.ROW_HOUSE).build();
 
         RentalTransaction result = normalizer.normalize(rawTransaction);
 
         assertThat(result.getAdminDongId()).isNull();
-        assertThat(result.getMaintenanceFee()).isZero();
     }
 
     @Test
@@ -313,6 +325,31 @@ class RentalTransactionNormalizerTest {
         );
 
         assertThat(exception).hasMessageContaining("monthlyRent");
+    }
+
+    @Test
+    void 월세가_DB_INT_최댓값이면_정규화한다() {
+        RawRentalTransaction rawTransaction = validTransactionBuilder(MolitRentApiCategory.ROW_HOUSE)
+                .monthlyRent(String.valueOf(Integer.MAX_VALUE))
+                .build();
+
+        RentalTransaction result = normalizer.normalize(rawTransaction);
+
+        assertThat(result.getMonthlyRentAmount()).isEqualTo(Integer.MAX_VALUE);
+        assertThat(result.getRentalType()).isEqualTo("월세");
+    }
+
+    @Test
+    void 월세가_DB_INT_범위를_초과하면_명확한_예외가_발생한다() {
+        RawRentalTransaction rawTransaction = validTransactionBuilder(MolitRentApiCategory.ROW_HOUSE)
+                .monthlyRent("2,147,483,648")
+                .build();
+
+        InvalidMolitRentDataException exception = catchInvalid(
+                () -> normalizer.normalize(rawTransaction)
+        );
+
+        assertThat(exception).hasMessageContaining("monthlyRent").hasMessageContaining("INT");
     }
 
     @ParameterizedTest

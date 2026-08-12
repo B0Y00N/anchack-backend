@@ -7,7 +7,7 @@
 
   <select
     id="findAll"
-    resultType="com.kbait.anchack.review.dto.response.ReviewCategoryResponse"
+    resultType="com.kbait.anchack.review.domain.ReviewCategory"
   >
     SELECT
     review_category_id AS reviewCategoryId,

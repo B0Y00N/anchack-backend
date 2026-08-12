@@ -1,5 +1,6 @@
 package com.kbait.anchack.common.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kbait.anchack.place.config.PlaceConfig;
 import com.kbait.anchack.recommendation.config.RecommendationConfig;
 import com.kbait.anchack.rental.config.MolitRentConfig;
@@ -19,24 +20,26 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.web.client.RestTemplate;
 
 import javax.sql.DataSource;
 
 @Configuration
 @PropertySource(
-        value = "classpath:application.properties",
-        encoding = "UTF-8"
+    value = "classpath:application.properties",
+    encoding = "UTF-8"
 )
-@MapperScan("com.kbait.anchack.*.mapper")
+@MapperScan(basePackages = "com.kbait.anchack.*.mapper")
 @ComponentScan(basePackages = {
-        "com.kbait.anchack.*.service",
-        "com.kbait.anchack.common.security"
+    "com.kbait.anchack.*.service",
+    "com.kbait.anchack.common.security",
+    "com.kbait.anchack.rental.client"
 })
 @Import({
-        MolitRentConfig.class,
-        RecommendationConfig.class,
-        PlaceConfig.class,
-        RouteConfig.class
+    PlaceConfig.class,
+    RecommendationConfig.class,
+    MolitRentConfig.class,
+    RouteConfig.class
 })
 @EnableTransactionManagement
 public class RootConfig {
@@ -62,7 +65,6 @@ public class RootConfig {
     // HikariCP DataSource 설정
     @Bean
     public DataSource dataSource() {
-
         HikariConfig config = new HikariConfig();
 
         config.setDriverClassName(driver);
@@ -82,38 +84,33 @@ public class RootConfig {
     // Flyway 데이터베이스 마이그레이션 설정
     @Bean(initMethod = "migrate")
     public Flyway flyway(DataSource dataSource) {
-
         return Flyway.configure()
-                .dataSource(dataSource)
-                .baselineOnMigrate(true)
-                .baselineVersion("0")
-                .locations("classpath:db/migration")
-                .load();
+            .dataSource(dataSource)
+            .baselineOnMigrate(true)
+            .baselineVersion("0")
+            .locations("classpath:db/migration")
+            .load();
     }
 
-    // MyBatis SqlSessionFactory 설정
-    // Flyway 마이그레이션 이후 SqlSessionFactory가 생성되도록 순서를 보장
+    // Flyway 실행 이후 SqlSessionFactory 생성
     @Bean
     public SqlSessionFactory sqlSessionFactory(
-            DataSource dataSource,
-            Flyway flyway
+        DataSource dataSource,
+        Flyway flyway
     ) throws Exception {
-
         SqlSessionFactoryBean factoryBean =
-                new SqlSessionFactoryBean();
+            new SqlSessionFactoryBean();
 
         factoryBean.setDataSource(dataSource);
-
         factoryBean.setConfigLocation(
-                applicationContext.getResource(
-                        "classpath:mybatis-config.xml"
-                )
+            applicationContext.getResource(
+                "classpath:mybatis-config.xml"
+            )
         );
-
         factoryBean.setMapperLocations(
-                applicationContext.getResources(
-                        "classpath*:mappers/**/*.xml"
-                )
+            applicationContext.getResources(
+                "classpath*:mappers/**/*.xml"
+            )
         );
 
         return factoryBean.getObject();
@@ -122,8 +119,20 @@ public class RootConfig {
     // 트랜잭션 관리자 설정
     @Bean
     public DataSourceTransactionManager transactionManager(
-            DataSource dataSource
+        DataSource dataSource
     ) {
         return new DataSourceTransactionManager(dataSource);
+    }
+
+    // 카카오 등 외부 API 호출에 사용하는 공용 RestTemplate
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+    // 카카오 API 응답(JSON) 파싱에 사용하는 공용 ObjectMapper
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }

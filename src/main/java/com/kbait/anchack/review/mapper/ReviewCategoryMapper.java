@@ -1,6 +1,6 @@
 package com.kbait.anchack.review.mapper;
 
-import com.kbait.anchack.review.dto.response.ReviewCategoryResponse;
+import com.kbait.anchack.review.domain.ReviewCategory;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
@@ -8,5 +8,5 @@ import java.util.List;
 @Mapper
 public interface ReviewCategoryMapper {
 
-    List<ReviewCategoryResponse> findAll();
+    List<ReviewCategory> findAll();
 }

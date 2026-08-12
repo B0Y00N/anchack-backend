@@ -7,6 +7,8 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +24,8 @@ import java.util.Date;
  */
 @Component
 public class JwtTokenProvider {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
 
     @Value("${jwt.secret}")
     private String secret;
@@ -50,12 +54,12 @@ public class JwtTokenProvider {
                     validateSecret();
 
                     byte[] keyBytes =
-                            secret.getBytes(
-                                    StandardCharsets.UTF_8
-                            );
+                        secret.getBytes(
+                            StandardCharsets.UTF_8
+                        );
 
                     key = Keys.hmacShaKeyFor(
-                            keyBytes
+                        keyBytes
                     );
 
                     signingKey = key;
@@ -72,27 +76,27 @@ public class JwtTokenProvider {
     private void validateSecret() {
 
         if (secret == null
-                || secret.trim().isEmpty()) {
+            || secret.trim().isEmpty()) {
 
             throw new IllegalStateException(
-                    "JWT_SECRET 환경변수가 설정되지 않았습니다."
+                "JWT_SECRET 환경변수가 설정되지 않았습니다."
             );
         }
 
         byte[] keyBytes =
-                secret.getBytes(
-                        StandardCharsets.UTF_8
-                );
+            secret.getBytes(
+                StandardCharsets.UTF_8
+            );
 
         /*
          * HS256은 최소 256bit, 즉 32byte 이상의 키가 필요하다.
          */
         if (keyBytes.length < 32) {
             throw new IllegalStateException(
-                    "JWT_SECRET은 최소 32바이트(256bit) 이상이어야 합니다. "
-                            + "현재 길이: "
-                            + keyBytes.length
-                            + "byte"
+                "JWT_SECRET은 최소 32바이트(256bit) 이상이어야 합니다. "
+                    + "현재 길이: "
+                    + keyBytes.length
+                    + "byte"
             );
         }
     }
@@ -103,63 +107,63 @@ public class JwtTokenProvider {
      * subject에는 users 테이블의 PK인 user_id를 저장한다.
      */
     public String generateToken(
-            AuthUser authUser
+        AuthUser authUser
     ) {
         validateAuthUser(authUser);
 
         Date now =
-                new Date();
+            new Date();
 
         Date expiry =
-                new Date(
-                        now.getTime()
-                                + expirationMs
-                );
+            new Date(
+                now.getTime()
+                    + expirationMs
+            );
 
         return Jwts.builder()
-                .setSubject(
-                        String.valueOf(
-                                authUser.getId()
-                        )
+            .setSubject(
+                String.valueOf(
+                    authUser.getId()
                 )
-                .claim(
-                        "provider",
-                        authUser.getProvider()
-                )
-                .claim(
-                        "providerId",
-                        authUser.getProviderId()
-                )
-                .setIssuedAt(now)
-                .setExpiration(expiry)
-                .signWith(
-                        getSigningKey(),
-                        SignatureAlgorithm.HS256
-                )
-                .compact();
+            )
+            .claim(
+                "provider",
+                authUser.getProvider()
+            )
+            .claim(
+                "providerId",
+                authUser.getProviderId()
+            )
+            .setIssuedAt(now)
+            .setExpiration(expiry)
+            .signWith(
+                getSigningKey(),
+                SignatureAlgorithm.HS256
+            )
+            .compact();
     }
 
     /**
      * 토큰 생성에 필요한 AuthUser 필수값을 검증한다.
      */
     private void validateAuthUser(
-            AuthUser authUser
+        AuthUser authUser
     ) {
         if (authUser == null) {
             throw new IllegalArgumentException(
-                    "JWT를 발급할 인증 사용자 정보가 없습니다."
+                "JWT를 발급할 인증 사용자 정보가 없습니다."
             );
         }
 
         if (authUser.getId() == null) {
             throw new IllegalArgumentException(
-                    "JWT를 발급할 사용자 ID가 없습니다."
+                "JWT를 발급할 사용자 ID가 없습니다."
             );
         }
 
         if (expirationMs <= 0) {
             throw new IllegalStateException(
-                    "jwt.expiration-ms는 0보다 커야 합니다."
+                "jwt.expiration-ms는 0보다 커야 합니다."
             );
         }
     }
@@ -173,34 +177,28 @@ public class JwtTokenProvider {
      * - 만료 여부
      */
     public boolean validateToken(
-            String token
+        String token
     ) {
         if (token == null
-                || token.trim().isEmpty()) {
+            || token.trim().isEmpty()) {
 
             return false;
         }
 
         try {
             parseClaims(
-                    token.trim()
+                token.trim()
             );
 
             return true;
 
         } catch (ExpiredJwtException e) {
-            System.err.println(
-                    "[JWT] 토큰 만료: "
-                            + e.getMessage()
-            );
+            log.info("JWT 토큰이 만료되었습니다.");
 
         } catch (JwtException
                  | IllegalArgumentException e) {
 
-            System.err.println(
-                    "[JWT] 토큰 검증 실패: "
-                            + e.getMessage()
-            );
+            log.warn("JWT 토큰 검증에 실패했습니다: {}", e.getMessage());
         }
 
         return false;
@@ -212,41 +210,41 @@ public class JwtTokenProvider {
      * subject에 저장된 users.user_id 값을 Long으로 변환한다.
      */
     public Long getUserId(
-            String token
+        String token
     ) {
         if (token == null
-                || token.trim().isEmpty()) {
+            || token.trim().isEmpty()) {
 
             throw new IllegalArgumentException(
-                    "JWT가 없습니다."
+                "JWT가 없습니다."
             );
         }
 
         Claims claims =
-                parseClaims(
-                        token.trim()
-                );
+            parseClaims(
+                token.trim()
+            );
 
         String subject =
-                claims.getSubject();
+            claims.getSubject();
 
         if (subject == null
-                || subject.trim().isEmpty()) {
+            || subject.trim().isEmpty()) {
 
             throw new JwtException(
-                    "JWT subject에 사용자 ID가 없습니다."
+                "JWT subject에 사용자 ID가 없습니다."
             );
         }
 
         try {
             return Long.valueOf(
-                    subject.trim()
+                subject.trim()
             );
 
         } catch (NumberFormatException e) {
             throw new JwtException(
-                    "JWT subject의 사용자 ID 형식이 올바르지 않습니다.",
-                    e
+                "JWT subject의 사용자 ID 형식이 올바르지 않습니다.",
+                e
             );
         }
     }
@@ -255,14 +253,14 @@ public class JwtTokenProvider {
      * JWT Claims를 파싱한다.
      */
     private Claims parseClaims(
-            String token
+        String token
     ) {
         return Jwts.parserBuilder()
-                .setSigningKey(
-                        getSigningKey()
-                )
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+            .setSigningKey(
+                getSigningKey()
+            )
+            .build()
+            .parseClaimsJws(token)
+            .getBody();
     }
 }

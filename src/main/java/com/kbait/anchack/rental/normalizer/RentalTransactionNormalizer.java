@@ -23,6 +23,7 @@ public final class RentalTransactionNormalizer {
     private static final Set<String> SINGLE_HOUSE_TYPES = Set.of("단독", "다가구");
 
     private static final BigDecimal MAX_AREA = new BigDecimal("999.99");
+    private static final long MAX_MONTHLY_RENT_AMOUNT = Integer.MAX_VALUE;
 
     public RentalTransaction normalize(RawRentalTransaction rawTransaction) {
         if (rawTransaction == null) {
@@ -31,16 +32,18 @@ public final class RentalTransactionNormalizer {
 
         MolitRentApiCategory apiCategory = requireApiCategory(rawTransaction.getApiCategory());
 
+        int monthlyRentAmount = normalizeMonthlyRentAmount(rawTransaction.getMonthlyRent());
+
         return RentalTransaction.builder()
                 .adminDongId(null)
                 .guCode(normalizeGuCode(rawTransaction.getGuCode()))
                 .legalDongName(normalizeLegalDongName(rawTransaction.getLegalDongName()))
+                .rentalType(determineRentalType(monthlyRentAmount))
                 .transactionDate(normalizeTransactionDate(rawTransaction))
                 .houseType(normalizeHouseType(apiCategory, rawTransaction.getHouseType()))
                 .area(normalizeArea(apiCategory, rawTransaction))
-                .deposit(normalizeAmount(rawTransaction.getDeposit(), "deposit"))
-                .rent(normalizeAmount(rawTransaction.getMonthlyRent(), "monthlyRent"))
-                .maintenanceFee(0)
+                .depositAmount(normalizeAmount(rawTransaction.getDeposit(), "deposit"))
+                .monthlyRentAmount(monthlyRentAmount)
                 .build();
     }
 
@@ -105,6 +108,31 @@ public final class RentalTransactionNormalizer {
                     exception
             );
         }
+    }
+
+    private int normalizeMonthlyRentAmount(String monthlyRent) {
+        String normalizedMonthlyRent = requireText(monthlyRent, "monthlyRent");
+
+        if (!isValidAmountFormat(normalizedMonthlyRent)) {
+            throw new InvalidMolitRentDataException("monthlyRent 금액 형식이 올바르지 않습니다.");
+        }
+
+        long monthlyRentAmount;
+        try {
+            monthlyRentAmount = Long.parseLong(normalizedMonthlyRent.replace(",", ""));
+        } catch (NumberFormatException exception) {
+            throw new InvalidMolitRentDataException("monthlyRent은 DB INT 범위를 초과할 수 없습니다.", exception);
+        }
+
+        if (monthlyRentAmount > MAX_MONTHLY_RENT_AMOUNT) {
+            throw new InvalidMolitRentDataException("monthlyRent은 DB INT 범위를 초과할 수 없습니다.");
+        }
+
+        return (int) monthlyRentAmount;
+    }
+
+    private String determineRentalType(int monthlyRentAmount) {
+        return monthlyRentAmount == 0 ? "전세" : "월세";
     }
 
     private boolean isValidAmountFormat(String amount) {
