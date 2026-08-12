@@ -77,8 +77,9 @@ public class OpenAiRecommendationReasonClient implements RecommendationReasonCli
                 .append(")뿐이야. 그 외 주제(예: 교통/위치/접근성, 조명, 자연경관, 상권 등 위에 없는 것)는 ")
                 .append("절대 언급하지 마. 위에 주어진 점수/정보로 확인되지 않는 구체적인 사실(특정 시설 이름, ")
                 .append("소음의 종류 등)도 지어내지 말고, 주어진 카테고리와 점수 수준에 기반한 내용만 써.\n");
-        prompt.append("예: ").append(REASON_PREFIX)
-                .append(" 편의점이 가까워요, 녹지 조성이 잘 되어 있어요, 범죄율이 낮아요");
+        prompt.append("예(카테고리와 점수 수준만으로 표현한 것 - 특정 시설·경관 등 구체적 사실은 ")
+                .append("언급하지 않음): ").append(REASON_PREFIX)
+                .append(" 안전 점수가 높아요, 편의시설이 풍부해요, 조용한 편이에요");
 
         return prompt.toString();
     }

@@ -23,8 +23,10 @@ import java.util.concurrent.Executors;
  * 조용히 제외한다. 반면 카카오 API 호출 자체가 실패한 후보(KakaoRouteApiException -
  * 네트워크/쿼터초과 등)는 조건 충족 여부를 알 수 없을 뿐 조건 불만족이 확인된 게
  * 아니므로 제외하지 않고 commuteTime/transferCount를 비운 채 결과에 포함시켜 소프트
- * 스코어링으로 넘긴다. 목적지 주소 자체를 geocoding하지 못하는 경우(AddressNotFoundException)는
- * 루프 진입 전 단계라 요청 전체가 그대로 실패한다. 계산된 값은 이후
+ * 스코어링으로 넘긴다. 목적지 자체를 geocoding하는 단계에서도 같은 원칙을 적용한다:
+ * 주소를 아예 못 찾은 경우(AddressNotFoundException, 사용자 입력 오류)는 요청 전체를 그대로
+ * 실패시키지만, 카카오 API 호출 자체가 실패한 경우(KakaoRouteApiException)는 후보 전체를
+ * 통근 정보 없이 통과시킨다(destAddress를 안 보낸 것과 동일하게 처리). 계산된 값은 이후
  * recommendations.commute_time/transfer_count에 재사용하기 위해 결과에 함께 담아 반환한다.
  *
  * 후보별 route API 호출은 순차로 하면 후보가 많을 때(수백 건) 응답이 너무 느려져서
@@ -58,12 +60,18 @@ public class CommuteFilter {
             Integer maxTransferCount
     ) {
         if (destAddress == null || destAddress.isBlank()) {
-            return candidateAdminDongIds.stream()
-                    .map(adminDongId -> RecommendationCandidate.builder().adminDongId(adminDongId).build())
-                    .toList();
+            return passThroughWithoutCommuteInfo(candidateAdminDongIds);
         }
 
-        Coordinates destination = routeService.geocode(destAddress);
+        Coordinates destination;
+        try {
+            destination = routeService.geocode(destAddress);
+        } catch (KakaoRouteApiException e) {
+            // 목적지 좌표를 못 구하면 후보별 통근 계산 자체가 불가능하다. AddressNotFoundException(사용자
+            // 입력 오류)과 달리 이건 카카오 쪽 장애이므로 요청을 실패시키지 않고 통근 정보 없이 진행한다.
+            return passThroughWithoutCommuteInfo(candidateAdminDongIds);
+        }
+
         List<AdminDongLocation> locations = adminDongMapper.findLocationsByIds(candidateAdminDongIds);
 
         if (locations.isEmpty()) {
@@ -74,6 +82,12 @@ public class CommuteFilter {
 
         return results.stream()
                 .filter(candidate -> candidate != null && withinCommuteLimits(candidate, maxCommuteTime, maxTransferCount))
+                .toList();
+    }
+
+    private List<RecommendationCandidate> passThroughWithoutCommuteInfo(List<Long> candidateAdminDongIds) {
+        return candidateAdminDongIds.stream()
+                .map(adminDongId -> RecommendationCandidate.builder().adminDongId(adminDongId).build())
                 .toList();
     }
 

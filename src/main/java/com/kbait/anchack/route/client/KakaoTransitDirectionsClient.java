@@ -80,13 +80,18 @@ public final class KakaoTransitDirectionsClient {
         } catch (RestClientResponseException exception) {
             throw new KakaoRouteApiException(
                     "카카오 대중교통 길찾기 API 호출 실패: httpStatus=" + exception.getRawStatusCode()
-                            + ", body=" + exception.getResponseBodyAsString());
+                            + ", body=" + exception.getResponseBodyAsString(),
+                    exception);
         } catch (RestClientException exception) {
             throw new KakaoRouteApiException("카카오 대중교통 길찾기 API 호출 실패", exception);
         }
     }
 
     private CommuteResult toCommuteResult(List<KakaoTransitRoute> routes) {
+        if (routes.isEmpty() || routes.get(0).getProperties() == null) {
+            throw new RouteNotFoundException("대중교통 경로를 찾을 수 없습니다: routes가 비어 있습니다.");
+        }
+
         KakaoTransitRouteProperties routeProperties = routes.get(0).getProperties();
 
         return CommuteResult.builder()
