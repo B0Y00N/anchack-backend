@@ -25,4 +25,9 @@ public final class RentalTransaction {
     private final long deposit;
     private final long rent;
     private final int maintenanceFee;
+
+    /** rental_transactions.rental_type - 월세가 0이면 전세, 그 외엔 월세로 판단한다. */
+    public String getRentalType() {
+        return rent == 0 ? "전세" : "월세";
+    }
 }
