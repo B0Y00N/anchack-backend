@@ -1,5 +1,7 @@
 package com.kbait.anchack.recommendation.service.impl;
 
+import com.kbait.anchack.admindong.domain.AdminDong;
+import com.kbait.anchack.admindong.mapper.AdminDongMapper;
 import com.kbait.anchack.recommendation.client.RecommendationReasonClient;
 import com.kbait.anchack.recommendation.dto.CategoryScoreBreakdown;
 import com.kbait.anchack.recommendation.dto.ConditionBundle;
@@ -35,6 +37,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final RecommendationReasonClient recommendationReasonClient;
     private final RecommendationMapper recommendationMapper;
     private final RecommendationScoreMapper recommendationScoreMapper;
+    private final AdminDongMapper adminDongMapper;
 
     @Override
     @Transactional
@@ -73,11 +76,19 @@ public class RecommendationServiceImpl implements RecommendationService {
     private RecommendationReasonContext toReasonContext(RankedRecommendation recommendation, Long conditionId) {
         return RecommendationReasonContext.builder()
                 .adminDongId(recommendation.getAdminDongId())
+                .adminDongName(resolveAdminDongName(recommendation.getAdminDongId()))
                 .conditionId(conditionId)
                 .totalScore(recommendation.getTotalScore())
                 .commuteTime(recommendation.getCommuteTime())
                 .transferCount(recommendation.getTransferCount())
+                .categoryBreakdowns(recommendation.getCategoryBreakdowns())
                 .build();
+    }
+
+    private String resolveAdminDongName(Long adminDongId) {
+        AdminDong adminDong = adminDongMapper.findById(adminDongId);
+
+        return adminDong.getGuName() + " " + adminDong.getName();
     }
 
     /**
