@@ -21,10 +21,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 /**
  * 하드필터 → 소프트 스코어링 → 상위 5개 추출 → reason/caution 생성 →
  * recommendations/recommendation_scores DELETE 후 INSERT까지 이어붙이는 진입점.
+ *
+ * reason/caution 생성(OpenAI 프록시 호출)은 후보별로 순차 호출하면 read-timeout이 걸릴 때마다
+ * 누적되어(최악의 경우 TOP_N * read-timeout) 사용자가 오래 기다리게 되므로 병렬로 호출한다.
+ * admin_dong 이름 조회(DB) 등 트랜잭션에 묶인 작업은 병렬화 대상에서 제외하고 메인 스레드에서
+ * 미리 끝내둔다 - @Transactional이 스레드 하나에 바인딩되므로 다른 스레드에서 매퍼를 호출하면
+ * 같은 트랜잭션/커넥션을 타지 않는다.
  */
 @Service
 @RequiredArgsConstructor
@@ -44,10 +54,15 @@ public class RecommendationServiceImpl implements RecommendationService {
     public List<RecommendationRow> generate(ConditionBundle condition) {
         List<RecommendationCandidate> candidates = hardFilterService.filter(condition);
         List<RankedRecommendation> ranked = recommendationScoreCalculator.calculate(candidates, condition);
+        List<RankedRecommendation> topRanked = ranked.stream().limit(TOP_N).toList();
 
-        List<RecommendationRow> rows = ranked.stream()
-                .limit(TOP_N)
-                .map(recommendation -> toRow(recommendation, condition.getConditionId()))
+        List<RecommendationReasonContext> contexts = topRanked.stream()
+                .map(recommendation -> toReasonContext(recommendation, condition.getConditionId()))
+                .toList();
+        List<GeneratedReason> reasons = generateReasonsInParallel(contexts);
+
+        List<RecommendationRow> rows = IntStream.range(0, topRanked.size())
+                .mapToObj(i -> toRow(topRanked.get(i), reasons.get(i), condition.getConditionId()))
                 .toList();
 
         replaceRecommendations(condition.getConditionId(), rows);
@@ -56,9 +71,26 @@ public class RecommendationServiceImpl implements RecommendationService {
         return rows;
     }
 
-    private RecommendationRow toRow(RankedRecommendation recommendation, Long conditionId) {
-        GeneratedReason reason = recommendationReasonClient.generate(toReasonContext(recommendation, conditionId));
+    private List<GeneratedReason> generateReasonsInParallel(List<RecommendationReasonContext> contexts) {
+        if (contexts.isEmpty()) {
+            return List.of();
+        }
 
+        ExecutorService executor = Executors.newFixedThreadPool(contexts.size());
+
+        try {
+            List<CompletableFuture<GeneratedReason>> futures = contexts.stream()
+                    .map(context -> CompletableFuture.supplyAsync(
+                            () -> recommendationReasonClient.generate(context), executor))
+                    .toList();
+
+            return futures.stream().map(CompletableFuture::join).toList();
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    private RecommendationRow toRow(RankedRecommendation recommendation, GeneratedReason reason, Long conditionId) {
         return RecommendationRow.builder()
                 .conditionId(conditionId)
                 .adminDongId(recommendation.getAdminDongId())

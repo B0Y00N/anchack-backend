@@ -5,6 +5,7 @@ import com.kbait.anchack.recommendation.dto.openai.OpenAiChatChoice;
 import com.kbait.anchack.recommendation.dto.openai.OpenAiChatMessage;
 import com.kbait.anchack.recommendation.dto.openai.OpenAiChatRequest;
 import com.kbait.anchack.recommendation.dto.openai.OpenAiChatResponse;
+import com.kbait.anchack.recommendation.dto.openai.OpenAiChatResponseMessage;
 import com.kbait.anchack.recommendation.exception.OpenAiApiException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -39,13 +40,28 @@ public final class OpenAiProxyClient {
         validateApiToken();
 
         OpenAiChatResponse response = fetch(prompt);
+
+        return extractContent(response);
+    }
+
+    private String extractContent(OpenAiChatResponse response) {
+        if (response == null) {
+            throw new OpenAiApiException("OpenAI 프록시 응답이 비어 있습니다.");
+        }
+
         List<OpenAiChatChoice> choices = response.getChoices();
 
-        if (choices.isEmpty()) {
+        if (choices == null || choices.isEmpty() || choices.get(0) == null) {
             throw new OpenAiApiException("OpenAI 프록시 응답에 choices가 없습니다.");
         }
 
-        return choices.get(0).getMessage().getContent();
+        OpenAiChatResponseMessage message = choices.get(0).getMessage();
+
+        if (message == null || message.getContent() == null) {
+            throw new OpenAiApiException("OpenAI 프록시 응답에 message.content가 없습니다.");
+        }
+
+        return message.getContent();
     }
 
     private OpenAiChatResponse fetch(String prompt) {
@@ -62,7 +78,8 @@ public final class OpenAiProxyClient {
                     properties.getBaseUrl() + CHAT_COMPLETIONS_PATH, request, OpenAiChatResponse.class);
         } catch (RestClientResponseException exception) {
             throw new OpenAiApiException(
-                    "OpenAI 프록시 호출 실패: httpStatus=" + exception.getRawStatusCode());
+                    "OpenAI 프록시 호출 실패: httpStatus=" + exception.getRawStatusCode(),
+                    exception);
         } catch (RestClientException exception) {
             throw new OpenAiApiException("OpenAI 프록시 호출 실패", exception);
         }
