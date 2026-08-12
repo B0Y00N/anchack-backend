@@ -47,11 +47,11 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional(readOnly = true)
     public List<ReviewResponse> getReviewsByAdminDong(Long adminDongId, Long viewerId) {
         if (adminDongId == null) {
-            throw new IllegalArgumentException("�됱젙�� ID媛� �꾩슂�⑸땲��.");
+            throw new IllegalArgumentException("행정동 ID가 필요합니다.");
         }
 
         if (reviewMapper.existsAdminDong(adminDongId) == 0) {
-            throw new IllegalArgumentException("議댁옱�섏� �딅뒗 �됱젙�숈엯�덈떎.");
+            throw new IllegalArgumentException("존재하지 않는 행정동입니다.");
         }
 
         List<Review> reviews = reviewMapper.findActiveByAdminDongId(adminDongId);
@@ -70,7 +70,7 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = findReview(reviewId);
 
         if (!review.isActive()) {
-            throw new IllegalStateException("�꾩옱 議고쉶�� �� �녿뒗 由щ럭�낅땲��.");
+            throw new IllegalStateException("현재 조회할 수 없는 리뷰입니다.");
         }
 
         review.setCategoryScores(getCategoryScores(reviewId));
@@ -83,7 +83,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional(readOnly = true)
     public List<ReviewResponse> getMyReviews(Long userId) {
         if (userId == null) {
-            throw new IllegalArgumentException("�ъ슜�� ID媛� �꾩슂�⑸땲��.");
+            throw new IllegalArgumentException("사용자 ID가 필요합니다.");
         }
 
         List<Review> reviews = reviewMapper.findByUserId(userId);
@@ -100,13 +100,13 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional
     public ReviewResponse createReview(Long userId, ReviewCreateRequest request) {
         if (userId == null) {
-            throw new IllegalArgumentException("�ъ슜�� ID媛� �꾩슂�⑸땲��.");
+            throw new IllegalArgumentException("사용자 ID가 필요합니다.");
         }
 
         validateReviewFields(request);
 
         if (reviewMapper.existsAdminDong(request.getAdminDongId()) == 0) {
-            throw new IllegalArgumentException("議댁옱�섏� �딅뒗 �됱젙�숈엯�덈떎.");
+            throw new IllegalArgumentException("존재하지 않는 행정동입니다.");
         }
 
         Review review = new Review();
@@ -119,7 +119,7 @@ public class ReviewServiceImpl implements ReviewService {
         int insertedCount = reviewMapper.insertReview(review);
 
         if (insertedCount != 1 || review.getReviewId() == null) {
-            throw new IllegalStateException("由щ럭 ���μ뿉 �ㅽ뙣�덉뒿�덈떎.");
+            throw new IllegalStateException("리뷰 저장에 실패했습니다.");
         }
 
         insertCategoryScores(review.getReviewId(), request.getCategoryScores());
@@ -139,7 +139,7 @@ public class ReviewServiceImpl implements ReviewService {
         validateReviewFields(request);
 
         if (!review.isActive()) {
-            throw new IllegalStateException("�쒖꽦 �곹깭�� 由щ럭留� �섏젙�� �� �덉뒿�덈떎.");
+            throw new IllegalStateException("활성 상태의 리뷰만 수정할 수 있습니다.");
         }
 
         review.setOverallRating(request.getOverallRating());
@@ -149,7 +149,7 @@ public class ReviewServiceImpl implements ReviewService {
         int updatedCount = reviewMapper.updateReview(review);
 
         if (updatedCount != 1) {
-            throw new IllegalStateException("由щ럭 �섏젙�� �ㅽ뙣�덉뒿�덈떎.");
+            throw new IllegalStateException("리뷰 수정에 실패했습니다.");
         }
 
         reviewMapper.deleteReviewScores(reviewId);
@@ -169,31 +169,31 @@ public class ReviewServiceImpl implements ReviewService {
         validateOwner(userId, review);
 
         if (!review.isActive()) {
-            throw new IllegalStateException("�대� ��젣�섏뿀嫄곕굹 �④� 泥섎━�� 由щ럭�낅땲��.");
+            throw new IllegalStateException("이미 삭제되었거나 숨김 처리된 리뷰입니다.");
         }
 
         int updatedCount = reviewMapper.updateReviewStatus(reviewId, Review.STATUS_DELETED);
 
         if (updatedCount != 1) {
-            throw new IllegalStateException("由щ럭 ��젣�� �ㅽ뙣�덉뒿�덈떎.");
+            throw new IllegalStateException("리뷰 삭제에 실패했습니다.");
         }
     }
 
     /**
-     * 媛숈� 諛섏쓳�� �ㅼ떆 �꾨Ⅴ硫� 痍⑥냼(��젣)�섍퀬, 諛섎� 諛섏쓳�� �꾨Ⅴ硫� 諛붾�먮떎.
-     * �먭린 �먯떊�� �� 由щ럭�먮룄 諛섏쓳�� �④만 �� �덇쾶 �덉슜�쒕떎(援녹씠 留됱쓣 �댁쑀媛� �놁쓬).
+     * 같은 반응을 다시 누르면 취소(삭제)하고, 반대 반응을 누르면 변경한다.
+     * 자기 자신의 리뷰에도 반응을 남길 수 있게 허용한다(굳이 막을 이유가 없음).
      */
 //    @Override
 //    @Transactional
 //    public ReviewReactionResponse reactToReview(Long userId, Long reviewId, String reactionType) {
 //        if (userId == null) {
-//            throw new UnauthorizedException("濡쒓렇�몄씠 �꾩슂�⑸땲��.");
+//            throw new UnauthorizedException("로그인이 필요합니다.");
 //        }
 //
 //        Review review = findReview(reviewId);
 //
 //        if (!review.isActive()) {
-//            throw new IllegalStateException("�꾩옱 諛섏쓳�� �④만 �� �녿뒗 由щ럭�낅땲��.");
+//            throw new IllegalStateException("현재 반응을 남길 수 없는 리뷰입니다.");
 //        }
 //
 //        String normalizedType = normalizeReactionType(reactionType);
@@ -234,7 +234,7 @@ public class ReviewServiceImpl implements ReviewService {
         validateAdmin(adminId);
 
         if (request == null) {
-            throw new IllegalArgumentException("蹂�寃쏀븷 �곹깭 �뺣낫媛� �꾩슂�⑸땲��.");
+            throw new IllegalArgumentException("변경할 상태 정보가 필요합니다.");
         }
 
         findReview(reviewId);
@@ -244,7 +244,7 @@ public class ReviewServiceImpl implements ReviewService {
         int updatedCount = reviewMapper.updateReviewStatus(reviewId, status);
 
         if (updatedCount != 1) {
-            throw new IllegalStateException("由щ럭 �곹깭 蹂�寃쎌뿉 �ㅽ뙣�덉뒿�덈떎.");
+            throw new IllegalStateException("리뷰 상태 변경에 실패했습니다.");
         }
 
         reviewMapper.insertAdminAction(reviewId, status, request.getReason());
@@ -257,7 +257,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     private Review findReview(Long reviewId) {
         if (reviewId == null) {
-            throw new IllegalArgumentException("由щ럭 ID媛� �꾩슂�⑸땲��.");
+            throw new IllegalArgumentException("리뷰 ID가 필요합니다.");
         }
 
         Review review = reviewMapper.findById(reviewId);
@@ -270,8 +270,8 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * 湲곗〈 諛섏쓳�� �놁쑝硫� �덈줈 �깅줉�섍퀬, 媛숈� 諛섏쓳�대㈃ 痍⑥냼, �ㅻⅤ硫� 諛섏쓳 醫낅쪟瑜� 諛붽씔��.
-     * 諛섑솚媛믪� 泥섎━ �� �꾩옱 �ъ슜�먯쓽 諛섏쓳("LIKE"/"DISLIKE"/null)�대떎.
+     * 기존 반응이 없으면 새로 등록하고, 같은 반응이면 취소, 다르면 반응 종류를 바꾼다.
+     * 반환값은 처리 후 현재 사용자의 반응("LIKE"/"DISLIKE"/null)이다.
      */
 //    private String applyReaction(Long reviewId, Long userId, String normalizedType) {
 //        ReviewReaction existing = reviewReactionMapper.findByReviewAndUser(reviewId, userId);
@@ -285,7 +285,7 @@ public class ReviewServiceImpl implements ReviewService {
 //            int insertedCount = reviewReactionMapper.insertReaction(reaction);
 //
 //            if (insertedCount != 1) {
-//                throw new IllegalStateException("由щ럭 諛섏쓳 ���μ뿉 �ㅽ뙣�덉뒿�덈떎.");
+//                throw new IllegalStateException("리뷰 반응 저장에 실패했습니다.");
 //            }
 //
 //            return normalizedType;
@@ -306,14 +306,14 @@ public class ReviewServiceImpl implements ReviewService {
                 reviewMapper.insertReviewScore(reviewId, entry.getKey(), entry.getValue());
 
             if (insertedCount != 1) {
-                throw new IllegalArgumentException("議댁옱�섏� �딅뒗 由щ럭 �됯� ��ぉ�낅땲��: " + entry.getKey());
+                throw new IllegalArgumentException("존재하지 않는 리뷰 평가 항목입니다: " + entry.getKey());
             }
         }
     }
 
     /**
-     * 由щ럭 紐⑸줉�� ��ぉ蹂� 蹂꾩젏�� 梨꾩슫��. 由щ럭 媛쒖닔留뚰겮 議고쉶�섏� �딅룄濡�
-     * findScoresByReviewIds濡� �� 踰덉뿉 媛��몄��� 由щ럭蹂꾨줈 �섎닠 �대뒗��.
+     * 리뷰 목록의 항목별 별점을 채운다. 리뷰 개수만큼 조회하지 않도록
+     * findScoresByReviewIds로 한 번에 가져와서 리뷰별로 나눠 넣는다.
      */
     private void attachCategoryScores(List<Review> reviews) {
         if (reviews.isEmpty()) {
@@ -342,8 +342,8 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * 由щ럭 紐⑸줉�� 醫뗭븘��/�レ뼱�� 媛쒖닔��, viewerId媛� �④릿 諛섏쓳�� 梨꾩썙以���.
-     * viewerId媛� null�대㈃(鍮꾨줈洹몄씤) 媛쒖닔留� 梨꾩슦怨� myReaction�� 鍮꾩썙�붾떎.
+     * 리뷰 목록의 좋아요/싫어요 개수와 viewerId가 남긴 반응을 채워준다.
+     * viewerId가 null이면(비로그인) 개수만 채우고 myReaction은 비워둔다.
      */
 //    private void attachReactions(List<Review> reviews, Long viewerId) {
 //        if (reviews.isEmpty()) {
@@ -393,13 +393,13 @@ public class ReviewServiceImpl implements ReviewService {
 //
 //    private String normalizeReactionType(String reactionType) {
 //        if (reactionType == null || reactionType.trim().isEmpty()) {
-//            throw new IllegalArgumentException("諛섏쓳 醫낅쪟(reactionType)媛� �꾩슂�⑸땲��.");
+//            throw new IllegalArgumentException("반응 종류(reactionType)가 필요합니다.");
 //        }
 //
 //        String normalized = reactionType.trim().toUpperCase();
 //
 //        if (!ReviewReaction.TYPE_LIKE.equals(normalized) && !ReviewReaction.TYPE_DISLIKE.equals(normalized)) {
-//            throw new IllegalArgumentException("諛섏쓳 醫낅쪟�� LIKE �먮뒗 DISLIKE�ъ빞 �⑸땲��.");
+//            throw new IllegalArgumentException("반응 종류는 LIKE 또는 DISLIKE여야 합니다.");
 //        }
 //
 //        return normalized;
@@ -433,11 +433,11 @@ public class ReviewServiceImpl implements ReviewService {
 
     private void validateReviewFields(ReviewCreateRequest request) {
         if (request == null) {
-            throw new IllegalArgumentException("由щ럭 �뺣낫媛� �꾩슂�⑸땲��.");
+            throw new IllegalArgumentException("리뷰 정보가 필요합니다.");
         }
 
         if (request.getAdminDongId() == null) {
-            throw new IllegalArgumentException("�됱젙�� �뺣낫媛� �꾩슂�⑸땲��.");
+            throw new IllegalArgumentException("행정동 정보가 필요합니다.");
         }
 
         validateReviewFields(request.getOverallRating(), request.getContent(), request.getCategoryScores());
@@ -445,7 +445,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     private void validateReviewFields(ReviewUpdateRequest request) {
         if (request == null) {
-            throw new IllegalArgumentException("�섏젙�� 由щ럭 �뺣낫媛� �꾩슂�⑸땲��.");
+            throw new IllegalArgumentException("수정할 리뷰 정보가 필요합니다.");
         }
 
         validateReviewFields(request.getOverallRating(), request.getContent(), request.getCategoryScores());
@@ -457,15 +457,15 @@ public class ReviewServiceImpl implements ReviewService {
         Map<String, Integer> categoryScores
     ) {
         if (overallRating == null || overallRating < MIN_RATING || overallRating > MAX_RATING) {
-            throw new IllegalArgumentException("醫낇빀 蹂꾩젏�� 1�먮��� 5�먭퉴吏� �낅젰�댁빞 �⑸땲��.");
+            throw new IllegalArgumentException("종합 별점은 1점부터 5점까지 입력해야 합니다.");
         }
 
         if (content == null || content.trim().length() < MIN_CONTENT_LENGTH) {
-            throw new IllegalArgumentException("由щ럭 �댁슜�� 理쒖냼 20�� �댁긽 �낅젰�댁빞 �⑸땲��.");
+            throw new IllegalArgumentException("리뷰 내용은 최소 20자 이상 입력해야 합니다.");
         }
 
         if (categoryScores == null || categoryScores.isEmpty()) {
-            throw new IllegalArgumentException("��ぉ蹂� 蹂꾩젏�� �낅젰�댁＜�몄슂.");
+            throw new IllegalArgumentException("항목별 별점을 입력해주세요.");
         }
 
         for (Map.Entry<String, Integer> entry : categoryScores.entrySet()) {
@@ -475,11 +475,11 @@ public class ReviewServiceImpl implements ReviewService {
 
     private void validateCategoryScore(String categoryCode, Integer score) {
         if (categoryCode == null || categoryCode.trim().isEmpty()) {
-            throw new IllegalArgumentException("�됯� ��ぉ 肄붾뱶媛� �꾩슂�⑸땲��.");
+            throw new IllegalArgumentException("평가 항목 코드가 필요합니다.");
         }
 
         if (score == null || score < MIN_RATING || score > MAX_RATING) {
-            throw new IllegalArgumentException("��ぉ蹂� 蹂꾩젏�� 1�먮��� 5�먭퉴吏� �낅젰�댁빞 �⑸땲��.");
+            throw new IllegalArgumentException("항목별 별점은 1점부터 5점까지 입력해야 합니다.");
         }
     }
 
@@ -491,13 +491,13 @@ public class ReviewServiceImpl implements ReviewService {
 
     private void validateAdmin(Long adminId) {
         if (adminId == null) {
-            throw new UnauthorizedException("濡쒓렇�몄씠 �꾩슂�⑸땲��.");
+            throw new UnauthorizedException("로그인이 필요합니다.");
         }
 
         String role = reviewMapper.findUserRole(adminId);
 
         if (!ADMIN_ROLE.equals(role)) {
-            throw new ForbiddenException("愿�由ъ옄 沅뚰븳�� �꾩슂�⑸땲��.");
+            throw new ForbiddenException("관리자 권한이 필요합니다.");
         }
     }
 
@@ -511,7 +511,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     private String normalizeRequiredStatus(String status) {
         if (status == null) {
-            throw new IllegalArgumentException("由щ럭 �곹깭媛� �꾩슂�⑸땲��.");
+            throw new IllegalArgumentException("리뷰 상태가 필요합니다.");
         }
 
         String normalized = status.trim().toUpperCase();
@@ -521,7 +521,7 @@ public class ReviewServiceImpl implements ReviewService {
             || Review.STATUS_DELETED.equals(normalized);
 
         if (!isValidStatus) {
-            throw new IllegalArgumentException("由щ럭 �곹깭�� ACTIVE, HIDDEN, DELETED 以� �섎굹�ъ빞 �⑸땲��.");
+            throw new IllegalArgumentException("리뷰 상태는 ACTIVE, HIDDEN, DELETED 중 하나여야 합니다.");
         }
 
         return normalized;
