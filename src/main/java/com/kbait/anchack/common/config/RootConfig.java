@@ -4,7 +4,7 @@ import com.kbait.anchack.place.config.PlaceConfig;
 import com.kbait.anchack.recommendation.config.RecommendationConfig;
 import com.kbait.anchack.rental.config.MolitRentConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kbait.anchack.ingestion.config.MolitRentConfig;
+import com.kbait.anchack.rental.config.MolitRentConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.ibatis.session.SqlSessionFactory;
