@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kbait.anchack.place.config.PlaceConfig;
 import com.kbait.anchack.recommendation.config.RecommendationConfig;
 import com.kbait.anchack.rental.config.MolitRentConfig;
+import com.kbait.anchack.rental.config.MolitRentSchedulerConfig;
 import com.kbait.anchack.route.config.RouteConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -39,7 +40,9 @@ import javax.sql.DataSource;
     PlaceConfig.class,
     RecommendationConfig.class,
     MolitRentConfig.class,
-    RouteConfig.class
+    RouteConfig.class,
+    SchedulingConfig.class,
+    MolitRentSchedulerConfig.class
 })
 @EnableTransactionManagement
 public class RootConfig {
