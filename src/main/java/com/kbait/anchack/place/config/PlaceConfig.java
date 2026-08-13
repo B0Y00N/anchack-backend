@@ -11,6 +11,7 @@ import com.kbait.anchack.place.cctv.service.CctvPlaceIngestionService;
 import com.kbait.anchack.place.cctv.service.CctvPlaceIngestionServiceImpl;
 import com.kbait.anchack.place.cctv.service.CctvPlaceIngestionRunner;
 import com.kbait.anchack.place.cctv.service.CctvPlaceIngestionRunnerImpl;
+import com.kbait.anchack.place.scheduler.CctvPlaceIngestionScheduler;
 import com.kbait.anchack.place.client.KakaoPlaceApiClient;
 import com.kbait.anchack.place.client.KakaoPlaceCollectionTargetProvider;
 import com.kbait.anchack.place.mapper.PlaceAdminDongMapper;
@@ -115,6 +116,13 @@ public class PlaceConfig {
             CctvPlaceIngestionService ingestionService
     ) {
         return new CctvPlaceIngestionRunnerImpl(csvDownloadClient, ingestionService);
+    }
+
+    @Bean
+    public CctvPlaceIngestionScheduler cctvPlaceIngestionScheduler(
+            CctvPlaceIngestionRunner cctvPlaceIngestionRunner
+    ) {
+        return new CctvPlaceIngestionScheduler(cctvPlaceIngestionRunner);
     }
 
     @Bean
