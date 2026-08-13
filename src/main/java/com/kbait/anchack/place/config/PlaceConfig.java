@@ -21,6 +21,8 @@ import com.kbait.anchack.place.resolver.GeoJsonAdminDongBoundaryRepository;
 import com.kbait.anchack.place.resolver.PlaceAdminDongResolver;
 import com.kbait.anchack.place.resolver.PlaceAdminDongResolverImpl;
 import com.kbait.anchack.place.service.PlaceWriteService;
+import com.kbait.anchack.place.service.KakaoPlaceIngestionService;
+import com.kbait.anchack.place.scheduler.KakaoPlaceIngestionScheduler;
 import com.kbait.anchack.place.validator.KakaoPlaceCategoryValidator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -193,5 +195,12 @@ public class PlaceConfig {
             KakaoPlaceParser parser
     ) {
         return new KakaoPlaceApiClient(restTemplate, properties, parser);
+    }
+
+    @Bean
+    public KakaoPlaceIngestionScheduler kakaoPlaceIngestionScheduler(
+            KakaoPlaceIngestionService kakaoPlaceIngestionService
+    ) {
+        return new KakaoPlaceIngestionScheduler(kakaoPlaceIngestionService);
     }
 }
