@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 카카오 대중교통 길찾기(publictraffic). place 도메인의 KakaoPlaceApiClient와 동일한 구조.
@@ -34,6 +35,12 @@ import java.util.Objects;
  * 명시적 신호이므로, 짧게 대기 후 한 번만 재시도한다 - 재시도로도 안 되면 그대로
  * KakaoRouteApiException으로 전파해 CommuteFilter가 해당 후보만 통근 정보 없이
  * 소프트 처리하도록 맡긴다.
+ *
+ * 실측 결과 대중교통 경로 API는 현재 환경에서 약 20 req/s 부근의 단기(≈1초 window) 호출
+ * 제한이 관찰되었으므로, 안전 마진을 두어 {@link #paceGlobally()}로 애플리케이션 전체
+ * 호출을 약 12.5 req/s(80ms 간격)로 페이싱한다. 이 클라이언트는 Spring 싱글턴 빈이라
+ * {@code nextAvailableCallMillis}가 요청 1건이 아니라 애플리케이션 전체에서 동시에 들어오는
+ * 모든 CommuteFilter 스레드/요청 사이에서 공유된다.
  */
 public final class KakaoTransitDirectionsClient {
 
@@ -43,9 +50,11 @@ public final class KakaoTransitDirectionsClient {
     private static final String AUTHORIZATION_PREFIX = "KakaoAK ";
     private static final String STATUS_OK = "OK";
     private static final long RATE_LIMIT_RETRY_DELAY_MS = 500;
+    private static final long PACING_INTERVAL_MS = 80;
 
     private final RestTemplate restTemplate;
     private final RouteApiProperties properties;
+    private final AtomicLong nextAvailableCallMillis = new AtomicLong(System.currentTimeMillis());
 
     public KakaoTransitDirectionsClient(RestTemplate restTemplate, RouteApiProperties properties) {
         this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate는 null일 수 없습니다.");
@@ -78,6 +87,8 @@ public final class KakaoTransitDirectionsClient {
             BigDecimal destLongitude,
             boolean allowRetryOnRateLimit
     ) {
+        paceGlobally();
+
         URI uri = UriComponentsBuilder.fromHttpUrl(DIRECTIONS_ENDPOINT)
                 .queryParam("start_x", originLongitude.toPlainString())
                 .queryParam("start_y", originLatitude.toPlainString())
@@ -112,6 +123,38 @@ public final class KakaoTransitDirectionsClient {
                     exception);
         } catch (RestClientException exception) {
             throw new KakaoRouteApiException("카카오 대중교통 길찾기 API 호출 실패", exception);
+        }
+    }
+
+    /**
+     * 다음 호출 슬롯을 CAS로 예약해 애플리케이션 전체 호출 간격을 최소 {@link #PACING_INTERVAL_MS}ms로
+     * 강제한다. 동시에 여러 스레드가 진입해도 각자 서로 다른 슬롯을 받아가므로 전체 합계 호출량이
+     * 12.5 req/s를 넘지 않는다.
+     */
+    private void paceGlobally() {
+        long myTurn;
+
+        while (true) {
+            long current = nextAvailableCallMillis.get();
+            long now = System.currentTimeMillis();
+            myTurn = Math.max(current, now);
+
+            if (nextAvailableCallMillis.compareAndSet(current, myTurn + PACING_INTERVAL_MS)) {
+                break;
+            }
+        }
+
+        long waitMillis = myTurn - System.currentTimeMillis();
+
+        if (waitMillis <= 0) {
+            return;
+        }
+
+        try {
+            Thread.sleep(waitMillis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new KakaoRouteApiException("페이싱 대기 중 인터럽트됨", e);
         }
     }
 
