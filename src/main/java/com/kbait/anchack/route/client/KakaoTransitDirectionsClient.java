@@ -37,10 +37,16 @@ import java.util.concurrent.atomic.AtomicLong;
  * 소프트 처리하도록 맡긴다.
  *
  * 실측 결과 대중교통 경로 API는 현재 환경에서 약 20 req/s 부근의 단기(≈1초 window) 호출
- * 제한이 관찰되었으므로, 안전 마진을 두어 {@link #paceGlobally()}로 애플리케이션 전체
- * 호출을 약 12.5 req/s(80ms 간격)로 페이싱한다. 이 클라이언트는 Spring 싱글턴 빈이라
- * {@code nextAvailableCallMillis}가 요청 1건이 아니라 애플리케이션 전체에서 동시에 들어오는
- * 모든 CommuteFilter 스레드/요청 사이에서 공유된다.
+ * 제한이 관찰되었으므로(카카오가 공식 수치를 공개하지 않아 확정치는 아니고 현재 환경
+ * 실측 기준), 안전 마진을 두어 {@link #paceGlobally()}로 호출을 약 12.5 req/s(80ms
+ * 간격)로 페이싱한다. 이 클라이언트는 Spring 싱글턴 빈이라 {@code nextAvailableCallMillis}가
+ * 요청 1건이 아니라 단일 애플리케이션 인스턴스(JVM) 안에서 동시에 들어오는 모든
+ * CommuteFilter 스레드/요청 사이에서 공유된다("global pacing"은 이 JVM 프로세스 범위
+ * 기준이다). 이 pacing은 JVM 메모리에 있는 {@code AtomicLong} 하나에만 의존하므로,
+ * 애플리케이션을 여러 인스턴스로 확장 배포하면 인스턴스마다 별도의 limiter를 갖게 되어
+ * 전체 호출량 상한이 인스턴스 수만큼 늘어난다. 현재 프로젝트는 단일 인스턴스로 운영되므로
+ * Redis 등을 이용한 분산 limiter는 도입하지 않았다 - 멀티 인스턴스로 확장할 계획이
+ * 생기면 재검토가 필요하다.
  */
 public final class KakaoTransitDirectionsClient {
 
