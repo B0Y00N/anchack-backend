@@ -42,11 +42,15 @@ import java.util.concurrent.Executors;
  * 있어 동시 호출 수를 적당히 제한(COMMUTE_CALL_CONCURRENCY)한다.
  *
  * 426개 후보를 동시 10개로 처리할 때 카카오 쪽에서 간헐적으로 429(TooManyRequests, 순간
- * 레이트리밋)가 발생하는 걸 확인했다(2026-08-12 로그 기준 309건 실패 중 3건 - 나머지
- * 306건은 이것과 무관한 일일 쿼터 초과). 429는 route.client의 KakaoGeocodingClient/
- * KakaoTransitDirectionsClient가 짧게 대기 후 1회 재시도하는 것으로 대응한다 - 재시도로도
- * 안 되면 여기(tryCalculateCommute)까지 KakaoRouteApiException으로 올라와 해당 후보만
- * 통근 정보 없이 소프트 처리된다.
+ * 레이트리밋)와 400(API limit has been exceeded)이 발생하는 걸 확인했다. 초기에는
+ * 이 실패들을 일일 쿼터 소진으로 추정했으나, 이후 요청 순번/시각을 계측해 재분석한
+ * 결과 벽시계 기준 약 1초 단위로 성공/실패 구간이 반복되는 패턴이 관찰돼 초당(단기
+ * window) 호출 제한(현재 환경 실측 기준 약 20 req/s 부근 - 카카오가 공식 수치를
+ * 공개하지 않아 확정치는 아님)이 주된 원인이라고 판단을 수정했다. 일일 쿼터는 이것과
+ * 별개로 존재하는 것으로 보인다(자세한 경위는 docs/ROUTE_API_RATE_LIMIT_ISSUE.md 참고).
+ * 429는 route.client의 KakaoGeocodingClient/KakaoTransitDirectionsClient가 짧게 대기
+ * 후 1회 재시도하는 것으로 대응한다 - 재시도로도 안 되면 여기(tryCalculateCommute)까지
+ * KakaoRouteApiException으로 올라와 해당 후보만 통근 정보 없이 소프트 처리된다.
  *
  * 다른 구현체가 나올 여지가 없는 단일 필터 로직이라 인터페이스 분리 없이
  * 구현체만 둠.
@@ -187,7 +191,7 @@ public class CommuteFilter {
                     commuteType);
             Instant endedAt = Instant.now();
 
-            log.info("통근 계산 성공: adminDongId={}, startedAt={}, endedAt={}, durationMs={}, commuteTime={}, transferCount={}",
+            log.debug("통근 계산 성공: adminDongId={}, startedAt={}, endedAt={}, durationMs={}, commuteTime={}, transferCount={}",
                     location.getAdminDongId(), startedAt, endedAt, Duration.between(startedAt, endedAt).toMillis(),
                     commuteResult.getCommuteTime(), commuteResult.getTransferCount());
 
@@ -198,7 +202,7 @@ public class CommuteFilter {
                     .build();
         } catch (RouteNotFoundException e) {
             Instant endedAt = Instant.now();
-            log.info("통근 계산 결과 경로 없음: adminDongId={}, startedAt={}, endedAt={}, durationMs={}",
+            log.debug("통근 계산 결과 경로 없음: adminDongId={}, startedAt={}, endedAt={}, durationMs={}",
                     location.getAdminDongId(), startedAt, endedAt, Duration.between(startedAt, endedAt).toMillis());
             return null;
         } catch (KakaoRouteApiException e) {
