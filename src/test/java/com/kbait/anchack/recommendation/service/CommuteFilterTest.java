@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -157,6 +158,44 @@ class CommuteFilterTest {
         verify(adminDongMapper, never()).findLocationsByIds(any());
     }
 
+    @Test
+    void 후보가_50개를_초과하면_직선거리가_가까운_상위_50개만_카카오_API를_호출한다() {
+        List<AdminDongLocation> locations = generateLocationsOrderedByDistanceFromDest(51);
+        List<Long> candidateIds = locations.stream().map(AdminDongLocation::getAdminDongId).toList();
+        when(routeService.geocode("목적지")).thenReturn(DEST);
+        when(adminDongMapper.findLocationsByIds(candidateIds)).thenReturn(locations);
+        when(routeService.calculateCommute(any(), any(), any(), any(), any()))
+                .thenReturn(CommuteResult.builder().commuteTime(20).transferCount(0).build());
+
+        List<RecommendationCandidate> result = filter.filter(candidateIds, "목적지", "대중교통", null, null);
+
+        verify(routeService, times(50)).calculateCommute(any(), any(), any(), any(), any());
+        assertThat(result).hasSize(50);
+
+        AdminDongLocation nearest = locations.get(0);
+        verify(routeService, times(1)).calculateCommute(
+                eq(nearest.getLatitude()), eq(nearest.getLongitude()), any(), any(), any());
+
+        AdminDongLocation farthest = locations.get(50);
+        verify(routeService, never()).calculateCommute(
+                eq(farthest.getLatitude()), eq(farthest.getLongitude()), any(), any(), any());
+    }
+
+    @Test
+    void 후보가_50개_이하이면_직선거리_필터링_없이_전부_카카오_API를_호출한다() {
+        List<AdminDongLocation> locations = generateLocationsOrderedByDistanceFromDest(50);
+        List<Long> candidateIds = locations.stream().map(AdminDongLocation::getAdminDongId).toList();
+        when(routeService.geocode("목적지")).thenReturn(DEST);
+        when(adminDongMapper.findLocationsByIds(candidateIds)).thenReturn(locations);
+        when(routeService.calculateCommute(any(), any(), any(), any(), any()))
+                .thenReturn(CommuteResult.builder().commuteTime(20).transferCount(0).build());
+
+        List<RecommendationCandidate> result = filter.filter(candidateIds, "목적지", "대중교통", null, null);
+
+        verify(routeService, times(50)).calculateCommute(any(), any(), any(), any(), any());
+        assertThat(result).hasSize(50);
+    }
+
     private AdminDongLocation location(Long adminDongId, String lat, String lng) {
         AdminDongLocation location = new AdminDongLocation();
         location.setAdminDongId(adminDongId);
@@ -164,5 +203,19 @@ class CommuteFilterTest {
         location.setLongitude(new BigDecimal(lng));
 
         return location;
+    }
+
+    /**
+     * index가 클수록 DEST로부터 위도 방향으로 0.001도(약 111m)씩 멀어지는 후보를 만든다.
+     * index 0은 DEST와 좌표가 같아(직선거리 0) 가장 가깝고, index가 커질수록 단조롭게
+     * 멀어지므로 상위 N개 트리밍 대상이 정확히 어느 index까지인지 결정적으로 검증할 수 있다.
+     */
+    private List<AdminDongLocation> generateLocationsOrderedByDistanceFromDest(int count) {
+        return IntStream.range(0, count)
+                .mapToObj(i -> location(
+                        (long) (i + 1),
+                        DEST.getLatitude().add(BigDecimal.valueOf(i).multiply(new BigDecimal("0.001"))).toPlainString(),
+                        DEST.getLongitude().toPlainString()))
+                .toList();
     }
 }
