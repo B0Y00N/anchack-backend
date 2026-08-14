@@ -13,13 +13,13 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Pattern;
 
 public class JwtAuthenticationFilter implements Filter {
 
-    public static final String USER_ID_ATTRIBUTE = "AUTH_USER_ID";
+    public static final String USER_ID_ATTRIBUTE =
+        "AUTH_USER_ID";
 
-    // 정확히 일치해야 하는 공개 경로 (메서드 무관)
+    // JWT 인증 없이 접근할 수 있는 경로
     private static final List<String> WHITELIST =
         Arrays.asList(
             "/",
@@ -27,16 +27,14 @@ public class JwtAuthenticationFilter implements Filter {
             "/api/auth/kakao/callback"
         );
 
-    // GET으로만 공개되는 리뷰 상세 경로: /api/reviews/{숫자 reviewId}
-    // 주의: /api/reviews/me 는 이 패턴에 걸리지 않으므로 인증이 계속 필요하다.
-    private static final Pattern REVIEW_DETAIL_PATH =
-        Pattern.compile("^/api/reviews/\\d+$");
-
     private JwtTokenProvider jwtTokenProvider;
 
     @Override
-    public void init(FilterConfig filterConfig) throws ServletException {
+    public void init(
+        FilterConfig filterConfig
+    ) throws ServletException {
 
+        // Spring이 관리하는 JwtTokenProvider Bean을 가져온다.
         this.jwtTokenProvider =
             WebApplicationContextUtils
                 .getRequiredWebApplicationContext(
@@ -58,24 +56,20 @@ public class JwtAuthenticationFilter implements Filter {
         HttpServletResponse response =
             (HttpServletResponse) res;
 
-        // CORS 사전 요청은 인증 없이 통과
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+        // CORS 사전 요청은 JWT 인증 없이 통과시킨다.
+        // CORS 응답 헤더는 WebConfig의 CorsFilter가 처리한다.
+        if ("OPTIONS".equalsIgnoreCase(
+            request.getMethod()
+        )) {
             chain.doFilter(request, response);
             return;
         }
 
-        // Context Path를 제외한 요청 경로
-        String requestPath = getRequestPath(request);
+        String requestPath =
+            getRequestPath(request);
 
-        // 공개 API는 인증 없이 통과
-        //
-        // [수정] 좋아요/싫어요 기능을 위해, 공개 리뷰 조회(GET /api/reviews,
-        // GET /api/reviews/{id})에서도 로그인한 사용자라면 "내가 이 리뷰에
-        // 좋아요/싫어요를 눌렀는지" 알아야 한다. 토큰이 없어도 여전히 조회는
-        // 되도록 하되(로그인 필수 아님), Authorization 헤더에 유효한 토큰이
-        // 있으면 선택적으로 사용자 ID를 채워준다.
-        if (isWhitelisted(requestPath, request.getMethod())) {
-            trySetOptionalAuthenticatedUser(request);
+        // 공개 경로는 JWT 인증 없이 Controller로 전달한다.
+        if (isWhitelisted(requestPath)) {
             chain.doFilter(request, response);
             return;
         }
@@ -83,6 +77,8 @@ public class JwtAuthenticationFilter implements Filter {
         String authorizationHeader =
             request.getHeader("Authorization");
 
+        // Authorization 헤더가 없거나 Bearer 형식이 아니면
+        // 인증 실패 응답을 반환한다.
         if (authorizationHeader == null
             || !authorizationHeader.startsWith("Bearer ")) {
 
@@ -109,6 +105,7 @@ public class JwtAuthenticationFilter implements Filter {
         Long userId;
 
         try {
+            // JWT가 유효한지 검사한다.
             if (!jwtTokenProvider.validateToken(token)) {
                 sendUnauthorizedResponse(
                     response,
@@ -117,7 +114,9 @@ public class JwtAuthenticationFilter implements Filter {
                 return;
             }
 
-            userId = jwtTokenProvider.getUserId(token);
+            // JWT에서 사용자 PK를 가져온다.
+            userId =
+                jwtTokenProvider.getUserId(token);
 
         } catch (Exception e) {
             sendUnauthorizedResponse(
@@ -127,6 +126,8 @@ public class JwtAuthenticationFilter implements Filter {
             return;
         }
 
+        // Controller에서 사용할 수 있도록
+        // 인증된 사용자 PK를 request에 저장한다.
         request.setAttribute(
             USER_ID_ATTRIBUTE,
             userId
@@ -135,54 +136,7 @@ public class JwtAuthenticationFilter implements Filter {
         chain.doFilter(request, response);
     }
 
-    /**
-     * 공개(whitelist) 경로에서, Authorization 헤더에 유효한 Bearer 토큰이
-     * 있으면 사용자 ID를 request 속성에 채워준다. 토큰이 없거나 유효하지
-     * 않아도 예외를 던지지 않고 조용히 넘어간다(로그인은 선택 사항이므로).
-     */
-    private void trySetOptionalAuthenticatedUser(
-        HttpServletRequest request
-    ) {
-        String authorizationHeader =
-            request.getHeader("Authorization");
-
-        if (authorizationHeader == null
-            || !authorizationHeader.startsWith("Bearer ")) {
-            return;
-        }
-
-        String token =
-            authorizationHeader
-                .substring(7)
-                .trim();
-
-        if (token.isEmpty()) {
-            return;
-        }
-
-        try {
-            if (!jwtTokenProvider.validateToken(token)) {
-                return;
-            }
-
-            Long userId = jwtTokenProvider.getUserId(token);
-
-            request.setAttribute(
-                USER_ID_ATTRIBUTE,
-                userId
-            );
-        } catch (Exception e) {
-            // 선택적 인증이므로 토큰이 잘못돼도 무시하고 비로그인으로 처리한다.
-        }
-    }
-
-    /**
-     * Context Path를 제외한 실제 API 경로를 반환한다.
-     *
-     * 예:
-     * /kakao-login-backend/api/admin-dongs
-     * → /api/admin-dongs
-     */
+    // Context Path를 제외한 실제 요청 경로를 반환한다.
     private String getRequestPath(
         HttpServletRequest request
     ) {
@@ -205,45 +159,15 @@ public class JwtAuthenticationFilter implements Filter {
         return requestUri;
     }
 
-    /**
-     * JWT 인증 없이 접근할 수 있는 경로인지 확인한다.
-     *
-     * [수정] ReviewController.getReviewsByAdminDong()/getReview()는
-     * "공개 리뷰 조회"로 설계되었는데도 이 whitelist에 빠져 있어서
-     * 비로그인 사용자가 동네 리뷰를 조회하려 하면 401이 발생하던 문제를 고쳤다.
-     * GET /api/reviews, GET /api/reviews/{숫자 id}만 공개하고,
-     * GET /api/reviews/me 및 POST/PUT/DELETE /api/reviews**는 계속 인증을 요구한다.
-     */
+    // JWT 인증 없이 접근할 수 있는 경로인지 확인한다.
     private boolean isWhitelisted(
-        String requestPath,
-        String method
+        String requestPath
     ) {
 
-        // 정확히 일치하는 공개 경로
-        if (WHITELIST.contains(requestPath)) {
-            return true;
-        }
-
-        // 행정동 API와 그 하위 경로 공개
-        if (requestPath.equals("/api/admin-dongs")
-            || requestPath.startsWith("/api/admin-dongs/")) {
-            return true;
-        }
-
-        // 리뷰 목록/상세 "조회(GET)"만 공개. /api/reviews/me는 제외된다.
-        if ("GET".equalsIgnoreCase(method)) {
-            if (requestPath.equals("/api/reviews")) {
-                return true;
-            }
-
-            if (REVIEW_DETAIL_PATH.matcher(requestPath).matches()) {
-                return true;
-            }
-        }
-
-        return false;
+        return WHITELIST.contains(requestPath);
     }
 
+    // JWT 인증 실패 응답을 반환한다.
     private void sendUnauthorizedResponse(
         HttpServletResponse response,
         String message
