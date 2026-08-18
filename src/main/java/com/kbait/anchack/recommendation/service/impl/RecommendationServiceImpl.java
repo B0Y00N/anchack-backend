@@ -56,13 +56,17 @@ public class RecommendationServiceImpl implements RecommendationService {
         List<RankedRecommendation> ranked = recommendationScoreCalculator.calculate(candidates, condition);
         List<RankedRecommendation> topRanked = ranked.stream().limit(TOP_N).toList();
 
-        List<RecommendationReasonContext> contexts = topRanked.stream()
-                .map(recommendation -> toReasonContext(recommendation, condition.getConditionId()))
+        List<AdminDong> adminDongs = topRanked.stream()
+                .map(recommendation -> adminDongMapper.findById(recommendation.getAdminDongId()))
+                .toList();
+
+        List<RecommendationReasonContext> contexts = IntStream.range(0, topRanked.size())
+                .mapToObj(i -> toReasonContext(topRanked.get(i), adminDongs.get(i), condition.getConditionId()))
                 .toList();
         List<GeneratedReason> reasons = generateReasonsInParallel(contexts);
 
         List<RecommendationRow> rows = IntStream.range(0, topRanked.size())
-                .mapToObj(i -> toRow(topRanked.get(i), reasons.get(i), condition.getConditionId()))
+                .mapToObj(i -> toRow(topRanked.get(i), adminDongs.get(i), reasons.get(i), condition.getConditionId()))
                 .toList();
 
         replaceRecommendations(condition.getConditionId(), rows);
@@ -90,7 +94,12 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
     }
 
-    private RecommendationRow toRow(RankedRecommendation recommendation, GeneratedReason reason, Long conditionId) {
+    private RecommendationRow toRow(
+            RankedRecommendation recommendation,
+            AdminDong adminDong,
+            GeneratedReason reason,
+            Long conditionId
+    ) {
         return RecommendationRow.builder()
                 .conditionId(conditionId)
                 .adminDongId(recommendation.getAdminDongId())
@@ -102,25 +111,27 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .recommendationReason(reason.getRecommendationReason())
                 .caution(reason.getCaution())
                 .categoryBreakdowns(recommendation.getCategoryBreakdowns())
+                .guName(adminDong.getGuName())
+                .dongName(adminDong.getName())
+                .latitude(adminDong.getLatitude())
+                .longitude(adminDong.getLongitude())
                 .build();
     }
 
-    private RecommendationReasonContext toReasonContext(RankedRecommendation recommendation, Long conditionId) {
+    private RecommendationReasonContext toReasonContext(
+            RankedRecommendation recommendation,
+            AdminDong adminDong,
+            Long conditionId
+    ) {
         return RecommendationReasonContext.builder()
                 .adminDongId(recommendation.getAdminDongId())
-                .adminDongName(resolveAdminDongName(recommendation.getAdminDongId()))
+                .adminDongName(adminDong.getGuName() + " " + adminDong.getName())
                 .conditionId(conditionId)
                 .totalScore(recommendation.getTotalScore())
                 .commuteTime(recommendation.getCommuteTime())
                 .transferCount(recommendation.getTransferCount())
                 .categoryBreakdowns(recommendation.getCategoryBreakdowns())
                 .build();
-    }
-
-    private String resolveAdminDongName(Long adminDongId) {
-        AdminDong adminDong = adminDongMapper.findById(adminDongId);
-
-        return adminDong.getGuName() + " " + adminDong.getName();
     }
 
     /**
