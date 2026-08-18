@@ -35,4 +35,13 @@ public class RecommendationRow {
 
     /** INSERT 시점엔 쓰지 않고, recommendation_scores 행을 만들 때만 참조한다. */
     private List<CategoryScoreBreakdown> categoryBreakdowns;
+
+    /**
+     * admin_dongs/gus 표시용 정보. recommendations 테이블 컬럼이 아니라 응답 조립
+     * 전용이라 insertBatch의 INSERT 문에는 참조되지 않는다(추가해도 INSERT에는 영향 없음).
+     */
+    private String guName;
+    private String dongName;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
 }

@@ -245,6 +245,10 @@ public class ConditionServiceImpl implements ConditionService {
     private RecommendedDongResponse toRecommendedDongResponse(RecommendationRow row) {
         return RecommendedDongResponse.builder()
                 .adminDongId(row.getAdminDongId())
+                .guName(row.getGuName())
+                .dongName(row.getDongName())
+                .lat(row.getLatitude())
+                .lng(row.getLongitude())
                 .totalScore(row.getTotalScore())
                 .dataCoverageRate(row.getDataCoverageRate())
                 .rank(row.getRank())
