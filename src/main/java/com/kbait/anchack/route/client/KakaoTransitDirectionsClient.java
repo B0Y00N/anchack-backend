@@ -5,6 +5,9 @@ import com.kbait.anchack.route.dto.CommuteResult;
 import com.kbait.anchack.route.dto.kakao.KakaoTransitRoute;
 import com.kbait.anchack.route.dto.kakao.KakaoTransitRouteProperties;
 import com.kbait.anchack.route.dto.kakao.KakaoTransitRouteResponse;
+import com.kbait.anchack.route.dto.kakao.KakaoTransitStep;
+import com.kbait.anchack.route.dto.kakao.KakaoTransitStop;
+import com.kbait.anchack.route.dto.kakao.KakaoTransitVehicle;
 import com.kbait.anchack.route.exception.KakaoRouteApiException;
 import com.kbait.anchack.route.exception.RouteNotFoundException;
 import org.slf4j.Logger;
@@ -24,7 +27,9 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 /**
  * 카카오 대중교통 길찾기(publictraffic). place 도메인의 KakaoPlaceApiClient와 동일한 구조.
@@ -55,6 +60,7 @@ public final class KakaoTransitDirectionsClient {
     private static final String DIRECTIONS_ENDPOINT = "https://dapi.kakao.com/v2/routing/publictraffic";
     private static final String AUTHORIZATION_PREFIX = "KakaoAK ";
     private static final String STATUS_OK = "OK";
+    private static final String STEP_TYPE_WALKING = "WALKING";
     private static final long RATE_LIMIT_RETRY_DELAY_MS = 500;
     private static final long PACING_INTERVAL_MS = 80;
 
@@ -178,12 +184,88 @@ public final class KakaoTransitDirectionsClient {
             throw new RouteNotFoundException("대중교통 경로를 찾을 수 없습니다: routes가 비어 있습니다.");
         }
 
-        KakaoTransitRouteProperties routeProperties = routes.get(0).getProperties();
+        KakaoTransitRoute route = routes.get(0);
+        KakaoTransitRouteProperties routeProperties = route.getProperties();
+        List<KakaoTransitStep> steps = route.getSteps() == null ? List.of() : route.getSteps();
+
+        List<KakaoTransitStep> walkingSteps = steps.stream()
+                .filter(step -> STEP_TYPE_WALKING.equals(stepType(step)))
+                .toList();
+        List<KakaoTransitStep> transitSteps = steps.stream()
+                .filter(step -> !STEP_TYPE_WALKING.equals(stepType(step)))
+                .toList();
+        Optional<KakaoTransitVehicle> firstVehicle = firstVehicle(transitSteps);
 
         return CommuteResult.builder()
                 .commuteTime(secondsToMinutes(routeProperties.getTotalTime()))
                 .transferCount(routeProperties.getTransfers())
+                .route(toRouteSummary(transitSteps))
+                .transportType(transitSteps.isEmpty() ? null : stepType(transitSteps.get(0)))
+                .lineNum(firstVehicle.map(KakaoTransitVehicle::getName).orElse(null))
+                .vehicleType(firstVehicle.map(KakaoTransitVehicle::getType).orElse(null))
+                .walkMin(sumStepMinutes(walkingSteps))
+                .subwayMin(sumStepMinutes(transitSteps))
                 .build();
+    }
+
+    private String stepType(KakaoTransitStep step) {
+        return step.getProperties() == null ? null : step.getProperties().getType();
+    }
+
+    private Optional<KakaoTransitVehicle> firstVehicle(List<KakaoTransitStep> transitSteps) {
+        if (transitSteps.isEmpty() || transitSteps.get(0).getProperties() == null) {
+            return Optional.empty();
+        }
+
+        List<KakaoTransitVehicle> vehicles = transitSteps.get(0).getProperties().getVehicles();
+
+        return (vehicles == null || vehicles.isEmpty()) ? Optional.empty() : Optional.of(vehicles.get(0));
+    }
+
+    /** non-walking(SUBWAY/BUS) 스텝을 등장 순서대로 "{노선명} {승차지} → {하차지}" 형태로 이어붙인다. */
+    private String toRouteSummary(List<KakaoTransitStep> transitSteps) {
+        String summary = transitSteps.stream()
+                .map(this::toLegSummary)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(", "));
+
+        return summary.isEmpty() ? null : summary;
+    }
+
+    private String toLegSummary(KakaoTransitStep step) {
+        if (step.getProperties() == null) {
+            return null;
+        }
+
+        List<KakaoTransitVehicle> vehicles = step.getProperties().getVehicles();
+        List<KakaoTransitStop> stops = step.getProperties().getStops();
+
+        if (vehicles == null || vehicles.isEmpty() || stops == null || stops.isEmpty()) {
+            return null;
+        }
+
+        return vehicles.get(0).getName() + " " + stops.get(0).getName()
+                + " → " + stops.get(stops.size() - 1).getName();
+    }
+
+    private Integer sumStepMinutes(List<KakaoTransitStep> steps) {
+        if (steps.isEmpty()) {
+            return null;
+        }
+
+        int totalSeconds = steps.stream()
+                .mapToInt(this::stepTimeSeconds)
+                .sum();
+
+        return secondsToMinutes(totalSeconds);
+    }
+
+    private int stepTimeSeconds(KakaoTransitStep step) {
+        if (step.getProperties() == null || step.getProperties().getTime() == null) {
+            return 0;
+        }
+
+        return step.getProperties().getTime();
     }
 
     private Integer secondsToMinutes(Integer seconds) {
