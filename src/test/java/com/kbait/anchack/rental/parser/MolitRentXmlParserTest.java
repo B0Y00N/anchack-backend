@@ -64,6 +64,7 @@ class MolitRentXmlParserTest {
                 .containsExactly("11620", "봉천동", "2026", "6", "29", "4,000", "64", "16.34");
         assertThat(transaction.getHouseType()).isNull();
         assertThat(transaction.getTotalFloorArea()).isNull();
+        assertThat(transaction.getJibun()).isEqualTo("881-26");
     }
 
     @Test
@@ -87,6 +88,7 @@ class MolitRentXmlParserTest {
                 )
                 .containsExactly("11620", "신림동", "2026", "6", "17", "22,422", "31", "45.53", "다세대");
         assertThat(transaction.getTotalFloorArea()).isNull();
+        assertThat(transaction.getJibun()).isEqualTo("1560-17");
     }
 
     @Test
@@ -110,6 +112,7 @@ class MolitRentXmlParserTest {
                 )
                 .containsExactly("11620", "신림동", "2026", "6", "16", "12,500", "10", "20", "다가구");
         assertThat(transaction.getExclusiveArea()).isNull();
+        assertThat(transaction.getJibun()).isNull();
     }
 
     @Test

@@ -169,7 +169,9 @@ export JDBC_USERNAME='root'
 export JDBC_PASSWORD="$DB_ROOT_PASSWORD"
 ```
 
-필수 환경변수는 `MOLIT_API_SERVICE_KEY`, `JDBC_URL`, `JDBC_USERNAME`, `JDBC_PASSWORD`다.
+필수 환경변수는 `MOLIT_API_SERVICE_KEY`, `KAKAO_ROUTE_REST_API_KEY`, `JDBC_URL`,
+`JDBC_USERNAME`, `JDBC_PASSWORD`다. 카카오 주소 검색은 전월세 지번을 좌표로 변환할 때 사용하며,
+키가 없거나 인증·네트워크·서버 오류가 발생하면 해당 구·월의 기존 거래를 교체하지 않는다.
 `MOLIT_API_NUM_OF_ROWS`, `MOLIT_API_CONNECT_TIMEOUT_MS`, `MOLIT_API_READ_TIMEOUT_MS`는 기존 기본값을
 그대로 사용하거나 필요할 때만 설정한다.
 
@@ -178,6 +180,11 @@ CLI 자신의 Context에서는 국토부·카카오 장소·CCTV cron을 모두 
 스케줄러까지 막을 수는 없다.
 
 ### 9-2. 1개 구·1개월 검증
+
+전체 `--all` 실행 전에 카카오 주소 검색 호출량과 쿼터를 반드시 확인한다. 최근 12개월 × 서울 25개
+구의 고유 `구 코드|법정동명|지번` 주소 수를 호출량의 상한으로 산정하고, 카카오 개발자 콘솔에서
+일·월 쿼터와 429 재시도 정책(500ms 대기 후 1회)이 전체 적재 규모를 감당하는지 확인한다. 확인 없이
+전체 초기 적재를 시작하지 않는다.
 
 현재가 2026년 8월이면 완료된 직전월인 관악구(`11620`) 2026년 7월을 먼저 검증한다.
 
@@ -188,6 +195,8 @@ CLI 자신의 Context에서는 국토부·카카오 장소·CCTV cron을 모두 
 
 부분 실행의 월은 KST 기준 현재월과 직전 11개월 안에 있어야 하며, 구 코드는 서울 25개 법정
 시군구 코드 중 하나여야 한다. 옵션 오류는 Spring Context, DB, 외부 API에 접근하기 전에 종료된다.
+부분 실행 후 카카오 호출 건수, 지번 없음·주소 검색 실패·경계 판별 실패·행정동 DB 조회 실패 건수와
+429 발생 여부를 확인한 뒤에만 `--all` 실행으로 넘어간다.
 
 실행 직후 같은 명령을 한 번 더 실행하고 아래 SQL의 건수가 누적되지 않는지 확인한다. 기존 적재는
 `gu_code`와 거래월 범위를 삭제한 뒤 다시 INSERT하는 정책이다. 즉, 거래 ID는 바뀔 수 있어도
@@ -282,7 +291,10 @@ WHERE COALESCE(monthly_counts.total_count, 0) = 0
 ORDER BY target_months.month_start, target_gus.gu_code;
 ```
 
-현재 초기 적재는 `admin_dong_id`를 의도적으로 `NULL`로 저장한다. 법정동→행정동 매핑은 포함하지
-않으며, `property_metrics` 생성도 후속 작업이다.
+오피스텔과 연립·다세대는 지번 주소를 카카오 좌표로 변환하고 서울 행정동 GeoJSON 경계로 판별하여
+`admin_dong_id`를 저장한다. 주소 검색 결과가 없거나 경계·DB 코드가 없으면 해당 거래만 `NULL`로
+저장한다. 현재 국토부 단독·다가구 응답에는 지번이 없어 정확한 행정동을 결정할 수 없으므로 거래는
+버리지 않고 `admin_dong_id = NULL`로 저장한다. 법정동명과 행정동명을 직접 맞추거나 임의 분배하지
+않는다. `property_metrics` 생성은 여전히 후속 작업이다.
 
 3. `RootConfig`가 기동 시 `src/main/resources/db/migration`의 Flyway 마이그레이션을 자동 실행하므로 별도 스키마 적용 작업은 필요 없습니다.

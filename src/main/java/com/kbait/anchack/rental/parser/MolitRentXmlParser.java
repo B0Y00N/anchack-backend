@@ -126,6 +126,7 @@ public class MolitRentXmlParser {
                 .apiCategory(apiCategory)
                 .guCode(getOptionalDirectText(item, "sggCd"))
                 .legalDongName(getOptionalDirectText(item, "umdNm"))
+                .jibun(getOptionalDirectText(item, "jibun"))
                 .dealYear(getOptionalDirectText(item, "dealYear"))
                 .dealMonth(getOptionalDirectText(item, "dealMonth"))
                 .dealDay(getOptionalDirectText(item, "dealDay"))

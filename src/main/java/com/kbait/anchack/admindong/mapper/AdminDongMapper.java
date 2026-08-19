@@ -20,6 +20,8 @@ public interface AdminDongMapper {
         @Param("adminDongId") Long adminDongId
     );
 
+    List<AdminDong> findAllCodeMappings();
+
     List<AdminDong> findByIds(
         @Param("adminDongIds") List<Long> adminDongIds
     );

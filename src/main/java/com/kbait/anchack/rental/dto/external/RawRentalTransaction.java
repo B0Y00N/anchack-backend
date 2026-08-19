@@ -12,6 +12,7 @@ public final class RawRentalTransaction {
 
     private final String guCode;
     private final String legalDongName;
+    private final String jibun;
 
     private final String dealYear;
     private final String dealMonth;

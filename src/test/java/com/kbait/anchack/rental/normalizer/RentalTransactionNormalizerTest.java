@@ -132,6 +132,15 @@ class RentalTransactionNormalizerTest {
     }
 
     @Test
+    void resolver가_제공한_admin_dong_ID를_보존한다() {
+        RawRentalTransaction rawTransaction = validTransactionBuilder(MolitRentApiCategory.ROW_HOUSE).build();
+
+        RentalTransaction result = normalizer.normalize(rawTransaction, 123L);
+
+        assertThat(result.getAdminDongId()).isEqualTo(123L);
+    }
+
+    @Test
     void 거래일_문자열을_LocalDate로_변환한다() {
         RawRentalTransaction rawTransaction = validTransactionBuilder(MolitRentApiCategory.ROW_HOUSE)
                 .dealYear(" 2026 ")
