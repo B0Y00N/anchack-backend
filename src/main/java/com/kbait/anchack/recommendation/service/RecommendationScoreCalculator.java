@@ -126,6 +126,12 @@ public class RecommendationScoreCalculator {
                 .dataCoverageRate(dataCoverageRate)
                 .commuteTime(candidate.getCommuteTime())
                 .transferCount(candidate.getTransferCount())
+                .route(candidate.getRoute())
+                .transportType(candidate.getTransportType())
+                .lineNum(candidate.getLineNum())
+                .vehicleType(candidate.getVehicleType())
+                .walkMin(candidate.getWalkMin())
+                .transitMin(candidate.getTransitMin())
                 .categoryBreakdowns(breakdowns)
                 .build();
     }
@@ -191,6 +197,12 @@ public class RecommendationScoreCalculator {
                 .rank(rank)
                 .commuteTime(recommendation.getCommuteTime())
                 .transferCount(recommendation.getTransferCount())
+                .route(recommendation.getRoute())
+                .transportType(recommendation.getTransportType())
+                .lineNum(recommendation.getLineNum())
+                .vehicleType(recommendation.getVehicleType())
+                .walkMin(recommendation.getWalkMin())
+                .transitMin(recommendation.getTransitMin())
                 .categoryBreakdowns(recommendation.getCategoryBreakdowns())
                 .build();
     }

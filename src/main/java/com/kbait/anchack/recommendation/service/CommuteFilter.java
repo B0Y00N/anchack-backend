@@ -199,6 +199,12 @@ public class CommuteFilter {
                     .adminDongId(location.getAdminDongId())
                     .commuteTime(commuteResult.getCommuteTime())
                     .transferCount(commuteResult.getTransferCount())
+                    .route(commuteResult.getRoute())
+                    .transportType(commuteResult.getTransportType())
+                    .lineNum(commuteResult.getLineNum())
+                    .vehicleType(commuteResult.getVehicleType())
+                    .walkMin(commuteResult.getWalkMin())
+                    .transitMin(commuteResult.getTransitMin())
                     .build();
         } catch (RouteNotFoundException e) {
             Instant endedAt = Instant.now();
