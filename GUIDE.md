@@ -148,4 +148,141 @@ kakao.client-secret=
 kakao.redirect-uri=<카카오 개발자 콘솔에 등록한 Redirect URI>
 ```
 
+## 9. 국토부 전월세 최근 12개월 일회성 초기 적재
+
+이 기능은 Tomcat 기동, HTTP 요청, 주간 스케줄러와 별개인 Gradle CLI다. 반드시 명시적인
+Gradle 명령으로만 실행되며, 전체 적재는 `--all` 옵션 없이는 시작되지 않는다.
+
+### 9-1. 환경변수 준비
+
+Gradle은 `.env`를 자동으로 읽지 않는다. Docker Compose의 MySQL을 호스트 CLI에서 사용할 때는
+아래처럼 `.env`를 export하고 Spring JDBC 환경변수를 준비한다. API 키와 DB 비밀번호를 Gradle
+옵션이나 명령 문자열에 직접 쓰지 않는다.
+
+```bash
+set -a
+source .env
+set +a
+
+export JDBC_URL='jdbc:mysql://127.0.0.1:3307/anchack?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useUnicode=true&allowPublicKeyRetrieval=true&useSSL=false'
+export JDBC_USERNAME='root'
+export JDBC_PASSWORD="$DB_ROOT_PASSWORD"
+```
+
+필수 환경변수는 `MOLIT_API_SERVICE_KEY`, `JDBC_URL`, `JDBC_USERNAME`, `JDBC_PASSWORD`다.
+`MOLIT_API_NUM_OF_ROWS`, `MOLIT_API_CONNECT_TIMEOUT_MS`, `MOLIT_API_READ_TIMEOUT_MS`는 기존 기본값을
+그대로 사용하거나 필요할 때만 설정한다.
+
+전체 적재 중에는 별도로 실행 중인 Tomcat의 국토부 주간 스케줄러를 중지하거나 비활성화해야 한다.
+CLI 자신의 Context에서는 국토부·카카오 장소·CCTV cron을 모두 비활성화하지만, 다른 프로세스의
+스케줄러까지 막을 수는 없다.
+
+### 9-2. 1개 구·1개월 검증
+
+현재가 2026년 8월이면 완료된 직전월인 관악구(`11620`) 2026년 7월을 먼저 검증한다.
+
+```bash
+./gradlew molitRentInitialLoad \
+  --args='--year-month=2026-07 --lawd-code=11620'
+```
+
+부분 실행의 월은 KST 기준 현재월과 직전 11개월 안에 있어야 하며, 구 코드는 서울 25개 법정
+시군구 코드 중 하나여야 한다. 옵션 오류는 Spring Context, DB, 외부 API에 접근하기 전에 종료된다.
+
+실행 직후 같은 명령을 한 번 더 실행하고 아래 SQL의 건수가 누적되지 않는지 확인한다. 기존 적재는
+`gu_code`와 거래월 범위를 삭제한 뒤 다시 INSERT하는 정책이다. 즉, 거래 ID는 바뀔 수 있어도
+월·구 범위의 행 수가 누적되면 안 된다.
+
+```sql
+SELECT
+    gu_code,
+    DATE_FORMAT(transaction_date, '%Y-%m') AS deal_month,
+    house_type,
+    COUNT(*) AS transaction_count
+FROM rental_transactions
+WHERE gu_code = '11620'
+  AND transaction_date >= '2026-07-01'
+  AND transaction_date < '2026-08-01'
+GROUP BY gu_code, DATE_FORMAT(transaction_date, '%Y-%m'), house_type
+ORDER BY house_type;
+```
+
+### 9-3. 전체 실행과 실패 재실행
+
+전체 실행은 최근 12개월을 오래된 월부터 처리하며, 각 월 안에서 서울 25개 구를 순차 처리한다.
+
+```bash
+./gradlew molitRentInitialLoad --args='--all'
+```
+
+한 월·구가 실패해도 나머지 작업은 계속한다. 종료 시 성공·실패 수와 실패한 대상, 예외 유형,
+복사 가능한 부분 재실행 명령을 출력한다. 실패가 하나라도 있으면 프로세스와 Gradle task는 exit code
+`1`로 종료한다. 로그에 나온 재실행 명령을 그대로 사용한다.
+
+```bash
+./gradlew molitRentInitialLoad \
+  --args='--year-month=2026-07 --lawd-code=11620'
+```
+
+전체 성공은 exit code `0`, 입력 오류 또는 Context 초기화 실패는 `2`다.
+
+### 9-4. 전체 적재 후 확인
+
+아래 SQL은 최근 12개월 × 25개 구의 월·구 조합 중 행이 없거나 API 유형별 건수가 0인 대상을
+찾기 위한 점검용이다. `0건`이 항상 오류라는 뜻은 아니므로 국토부 API의 실제 응답과 함께 확인한다.
+
+```sql
+WITH RECURSIVE target_months AS (
+    SELECT DATE_FORMAT(DATE_SUB(DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')), INTERVAL 11 MONTH), '%Y-%m-01') AS month_start
+    UNION ALL
+    SELECT DATE_ADD(month_start, INTERVAL 1 MONTH)
+    FROM target_months
+    WHERE month_start < DATE_FORMAT(DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')), '%Y-%m-01')
+),
+target_gus AS (
+    SELECT '11110' AS gu_code UNION ALL SELECT '11140' UNION ALL SELECT '11170'
+    UNION ALL SELECT '11200' UNION ALL SELECT '11215' UNION ALL SELECT '11230'
+    UNION ALL SELECT '11260' UNION ALL SELECT '11290' UNION ALL SELECT '11305'
+    UNION ALL SELECT '11320' UNION ALL SELECT '11350' UNION ALL SELECT '11380'
+    UNION ALL SELECT '11410' UNION ALL SELECT '11440' UNION ALL SELECT '11470'
+    UNION ALL SELECT '11500' UNION ALL SELECT '11530' UNION ALL SELECT '11545'
+    UNION ALL SELECT '11560' UNION ALL SELECT '11590' UNION ALL SELECT '11620'
+    UNION ALL SELECT '11650' UNION ALL SELECT '11680' UNION ALL SELECT '11710'
+    UNION ALL SELECT '11740'
+),
+monthly_counts AS (
+    SELECT
+        gu_code,
+        DATE_FORMAT(transaction_date, '%Y-%m-01') AS month_start,
+        SUM(house_type = '오피스텔') AS officetel_count,
+        SUM(house_type IN ('연립', '다세대', '연립다세대')) AS row_house_count,
+        SUM(house_type IN ('단독', '다가구')) AS single_house_count,
+        COUNT(*) AS total_count
+    FROM rental_transactions
+    WHERE transaction_date >= DATE_FORMAT(DATE_SUB(DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')), INTERVAL 11 MONTH), '%Y-%m-01')
+      AND transaction_date < DATE_ADD(DATE_FORMAT(DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')), '%Y-%m-01'), INTERVAL 1 MONTH)
+    GROUP BY gu_code, DATE_FORMAT(transaction_date, '%Y-%m-01')
+)
+SELECT
+    target_gus.gu_code,
+    target_months.month_start,
+    COALESCE(monthly_counts.total_count, 0) AS total_count,
+    COALESCE(monthly_counts.officetel_count, 0) AS officetel_count,
+    COALESCE(monthly_counts.row_house_count, 0) AS row_house_count,
+    COALESCE(monthly_counts.single_house_count, 0) AS single_house_count
+FROM target_months
+CROSS JOIN target_gus
+LEFT JOIN monthly_counts
+    ON monthly_counts.gu_code = target_gus.gu_code
+   AND monthly_counts.month_start = DATE_FORMAT(target_months.month_start, '%Y-%m-01')
+WHERE COALESCE(monthly_counts.total_count, 0) = 0
+   OR COALESCE(monthly_counts.officetel_count, 0) = 0
+   OR COALESCE(monthly_counts.row_house_count, 0) = 0
+   OR COALESCE(monthly_counts.single_house_count, 0) = 0
+ORDER BY target_months.month_start, target_gus.gu_code;
+```
+
+현재 초기 적재는 `admin_dong_id`를 의도적으로 `NULL`로 저장한다. 법정동→행정동 매핑은 포함하지
+않으며, `property_metrics` 생성도 후속 작업이다.
+
 3. `RootConfig`가 기동 시 `src/main/resources/db/migration`의 Flyway 마이그레이션을 자동 실행하므로 별도 스키마 적용 작업은 필요 없습니다.

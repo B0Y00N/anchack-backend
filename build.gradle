@@ -116,3 +116,11 @@ test {
 war {
     archiveFileName = 'anchack-backend.war'
 }
+
+tasks.register('molitRentInitialLoad', JavaExec) {
+    group = 'data ingestion'
+    description = '명시적으로 요청한 국토부 전월세 최근 12개월 초기 적재 CLI를 실행합니다.'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath + configurations.providedCompile
+    mainClass = 'com.kbait.anchack.rental.initialload.MolitRentInitialLoadCli'
+}
