@@ -5,10 +5,13 @@ import com.kbait.anchack.rental.client.MolitRentApiClient;
 import com.kbait.anchack.rental.config.MolitRentApiProperties;
 import com.kbait.anchack.rental.domain.RentalTransaction;
 import com.kbait.anchack.rental.domain.RentalTransactionCategoryCounts;
+import com.kbait.anchack.rental.dto.external.RawRentalTransaction;
 import com.kbait.anchack.rental.exception.MolitRentApiResponseException;
 import com.kbait.anchack.rental.mapper.RentalTransactionMapper;
 import com.kbait.anchack.rental.normalizer.RentalTransactionNormalizer;
 import com.kbait.anchack.rental.parser.MolitRentXmlParser;
+import com.kbait.anchack.rental.resolver.RentalAdminDongResolution;
+import com.kbait.anchack.rental.resolver.RentalAdminDongResolver;
 import com.kbait.anchack.rental.service.MolitRentIngestionService;
 import com.kbait.anchack.rental.service.impl.MolitRentIngestionServiceImpl;
 import com.kbait.anchack.rental.service.RentalTransactionWriteService;
@@ -129,7 +132,8 @@ class MolitRentIngestionFlowTest {
         molitRentIngestionService = new MolitRentIngestionServiceImpl(
                 apiClient,
                 new RentalTransactionNormalizer(),
-                rentalTransactionWriteService
+                rentalTransactionWriteService,
+                fixtureResolutionResolver()
         );
     }
 
@@ -272,17 +276,57 @@ class MolitRentIngestionFlowTest {
                 .extracting(RentalTransaction::getHouseType)
                 .allMatch(SINGLE_HOUSE_TYPES::contains);
 
-        assertCommonNormalizedFields(transactions);
+        assertCommonNormalizedFields(
+                transactions,
+                officetelTransactions,
+                rowHouseTransactions,
+                singleHouseTransactions
+        );
         assertRoundedFixtureAreas(rowHouseTransactions, singleHouseTransactions);
         assertRepresentativeTransactions(transactions);
     }
 
-    private void assertCommonNormalizedFields(List<RentalTransaction> transactions) {
+    private void assertCommonNormalizedFields(
+            List<RentalTransaction> transactions,
+            List<RentalTransaction> officetelTransactions,
+            List<RentalTransaction> rowHouseTransactions,
+            List<RentalTransaction> singleHouseTransactions
+    ) {
         assertThat(transactions).allSatisfy(transaction -> {
             assertThat(transaction.getGuCode()).isEqualTo(GU_CODE);
-            assertThat(transaction.getAdminDongId()).isNull();
             assertThat(transaction.getArea().scale()).isEqualTo(2);
         });
+        assertThat(officetelTransactions).extracting(RentalTransaction::getAdminDongId).containsOnly(77L);
+        assertThat(rowHouseTransactions).extracting(RentalTransaction::getAdminDongId).containsOnly(77L);
+        assertThat(singleHouseTransactions).extracting(RentalTransaction::getAdminDongId).containsOnlyNulls();
+    }
+
+    private RentalAdminDongResolver fixtureResolutionResolver() {
+        return () -> new RentalAdminDongResolver.ResolutionSession() {
+
+            private boolean closed;
+
+            @Override
+            public RentalAdminDongResolution resolve(RawRentalTransaction rawTransaction) {
+                if (closed) {
+                    throw new IllegalStateException("닫힌 fixture session");
+                }
+                if (rawTransaction.getApiCategory() == MolitRentApiCategory.SINGLE_HOUSE) {
+                    assertThat(rawTransaction.getJibun()).isNull();
+                    return RentalAdminDongResolution.unmapped(
+                            RentalAdminDongResolution.Status.JIBUN_MISSING
+                    );
+                }
+
+                assertThat(rawTransaction.getJibun()).isNotBlank();
+                return RentalAdminDongResolution.mapped(77L);
+            }
+
+            @Override
+            public void close() {
+                closed = true;
+            }
+        };
     }
 
     private void assertRoundedFixtureAreas(
