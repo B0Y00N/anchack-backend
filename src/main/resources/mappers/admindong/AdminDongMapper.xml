@@ -74,4 +74,13 @@
 
   </select>
 
+  <select id="findAllCodeMappings"
+          resultMap="adminDongResultMap">
+    SELECT
+      admin_dong_id,
+      gu_code,
+      dong_code
+    FROM admin_dongs
+  </select>
+
 </mapper>

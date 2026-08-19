@@ -1,8 +1,14 @@
 package com.kbait.anchack.rental.config;
 
+import com.kbait.anchack.admindong.mapper.AdminDongMapper;
+import com.kbait.anchack.place.resolver.AdminDongBoundaryRepository;
 import com.kbait.anchack.rental.client.MolitRentApiClient;
 import com.kbait.anchack.rental.normalizer.RentalTransactionNormalizer;
 import com.kbait.anchack.rental.parser.MolitRentXmlParser;
+import com.kbait.anchack.rental.registry.SeoulLawdCodeRegistry;
+import com.kbait.anchack.rental.resolver.RentalAdminDongResolver;
+import com.kbait.anchack.rental.resolver.RentalAdminDongResolverImpl;
+import com.kbait.anchack.route.client.KakaoGeocodingClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -45,6 +51,26 @@ public class MolitRentConfig {
     @Bean
     public RentalTransactionNormalizer rentalTransactionNormalizer() {
         return new RentalTransactionNormalizer();
+    }
+
+    @Bean
+    public SeoulLawdCodeRegistry seoulLawdCodeRegistry() {
+        return new SeoulLawdCodeRegistry();
+    }
+
+    @Bean
+    public RentalAdminDongResolver rentalAdminDongResolver(
+            KakaoGeocodingClient kakaoGeocodingClient,
+            AdminDongBoundaryRepository boundaryRepository,
+            AdminDongMapper adminDongMapper,
+            SeoulLawdCodeRegistry lawdCodeRegistry
+    ) {
+        return new RentalAdminDongResolverImpl(
+                kakaoGeocodingClient,
+                boundaryRepository,
+                adminDongMapper,
+                lawdCodeRegistry
+        );
     }
 
     @Bean

@@ -26,6 +26,13 @@ public final class RentalTransactionNormalizer {
     private static final long MAX_MONTHLY_RENT_AMOUNT = Integer.MAX_VALUE;
 
     public RentalTransaction normalize(RawRentalTransaction rawTransaction) {
+        return normalize(rawTransaction, null);
+    }
+
+    public RentalTransaction normalize(
+            RawRentalTransaction rawTransaction,
+            Long adminDongId
+    ) {
         if (rawTransaction == null) {
             throw new InvalidMolitRentDataException("rawTransaction은 null일 수 없습니다.");
         }
@@ -35,7 +42,7 @@ public final class RentalTransactionNormalizer {
         int monthlyRentAmount = normalizeMonthlyRentAmount(rawTransaction.getMonthlyRent());
 
         return RentalTransaction.builder()
-                .adminDongId(null)
+                .adminDongId(adminDongId)
                 .guCode(normalizeGuCode(rawTransaction.getGuCode()))
                 .legalDongName(normalizeLegalDongName(rawTransaction.getLegalDongName()))
                 .rentalType(determineRentalType(monthlyRentAmount))

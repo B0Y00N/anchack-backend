@@ -3,6 +3,8 @@ package com.kbait.anchack.admindong.mapper;
 import com.kbait.anchack.admindong.domain.AdminDong;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 public interface AdminDongMapper {
 
     /**
@@ -17,4 +19,6 @@ public interface AdminDongMapper {
     AdminDong findById(
         @Param("adminDongId") Long adminDongId
     );
+
+    List<AdminDong> findAllCodeMappings();
 }
