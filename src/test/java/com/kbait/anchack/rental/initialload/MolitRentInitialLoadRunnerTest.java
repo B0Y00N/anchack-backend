@@ -3,6 +3,7 @@ package com.kbait.anchack.rental.initialload;
 import com.kbait.anchack.rental.initialload.MolitRentInitialLoadRunner.InitialLoadRequest;
 import com.kbait.anchack.rental.initialload.MolitRentInitialLoadRunner.InitialLoadResult;
 import com.kbait.anchack.rental.service.MolitRentIngestionService;
+import com.kbait.anchack.rental.service.MolitRentIngestionService.IngestionExecution;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -14,6 +15,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class MolitRentInitialLoadRunnerTest {
 
@@ -82,6 +86,31 @@ class MolitRentInitialLoadRunnerTest {
             assertThat(failedTask.getYearMonth()).isEqualTo(YearMonth.of(2025, 9));
             assertThat(failedTask.getExceptionType()).isEqualTo(IllegalStateException.class.getName());
         });
+    }
+
+    @Test
+    void 한_논리_실행에서_execution을_한_번_열고_작업_실패_후에도_계속한_뒤_닫는다() {
+        MolitRentIngestionService service = mock(MolitRentIngestionService.class);
+        IngestionExecution execution = mock(IngestionExecution.class);
+        when(service.openExecution()).thenReturn(execution);
+        org.mockito.Mockito.doThrow(new IllegalStateException("FAILED"))
+                .when(execution)
+                .ingestMonthlyTransactions("11140", YearMonth.of(2025, 9));
+        MolitRentInitialLoadRunner runner = new MolitRentInitialLoadRunner(
+                service,
+                AUGUST_2026_CLOCK,
+                List.of("11110", "11140")
+        );
+
+        InitialLoadResult result = runner.run(InitialLoadRequest.all());
+
+        assertThat(result.getSuccessfulTaskCount()).isEqualTo(23);
+        assertThat(result.getFailedTaskCount()).isEqualTo(1);
+        verify(service).openExecution();
+        verify(execution).ingestMonthlyTransactions("11140", YearMonth.of(2025, 9));
+        verify(execution).ingestMonthlyTransactions("11110", YearMonth.of(2025, 10));
+        verify(execution).ingestMonthlyTransactions("11140", YearMonth.of(2026, 8));
+        verify(execution).close();
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.kbait.anchack.rental.scheduler;
 
 import com.kbait.anchack.rental.config.MolitRentSchedulerProperties;
 import com.kbait.anchack.rental.service.MolitRentIngestionService;
+import com.kbait.anchack.rental.service.MolitRentIngestionService.IngestionExecution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -37,19 +38,21 @@ public class MolitRentIngestionScheduler {
         int successfulTaskCount = 0;
         int failedTaskCount = 0;
 
-        for (YearMonth dealYearMonth : getTargetYearMonths()) {
-            for (String lawdCode : properties.getLawdCodes()) {
-                try {
-                    molitRentIngestionService.ingestMonthlyTransactions(lawdCode, dealYearMonth);
-                    successfulTaskCount++;
-                } catch (RuntimeException exception) {
-                    failedTaskCount++;
-                    log.warn(
-                            "국토부 전월세 수집 실패: lawdCode={}, yearMonth={}, exceptionType={}",
-                            lawdCode,
-                            dealYearMonth,
-                            exception.getClass().getName()
-                    );
+        try (IngestionExecution execution = molitRentIngestionService.openExecution()) {
+            for (YearMonth dealYearMonth : getTargetYearMonths()) {
+                for (String lawdCode : properties.getLawdCodes()) {
+                    try {
+                        execution.ingestMonthlyTransactions(lawdCode, dealYearMonth);
+                        successfulTaskCount++;
+                    } catch (RuntimeException exception) {
+                        failedTaskCount++;
+                        log.warn(
+                                "국토부 전월세 수집 실패: lawdCode={}, yearMonth={}, exceptionType={}",
+                                lawdCode,
+                                dealYearMonth,
+                                exception.getClass().getName()
+                        );
+                    }
                 }
             }
         }

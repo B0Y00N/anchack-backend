@@ -1,6 +1,8 @@
 package com.kbait.anchack.rental.initialload;
 
+import com.kbait.anchack.rental.registry.SeoulLawdCodeRegistry;
 import com.kbait.anchack.rental.service.MolitRentIngestionService;
+import com.kbait.anchack.rental.service.MolitRentIngestionService.IngestionExecution;
 
 import java.time.Clock;
 import java.time.YearMonth;
@@ -14,13 +16,7 @@ import java.util.Objects;
  */
 public final class MolitRentInitialLoadRunner {
 
-    public static final List<String> SEOUL_LAWD_CODES = List.of(
-            "11110", "11140", "11170", "11200", "11215",
-            "11230", "11260", "11290", "11305", "11320",
-            "11350", "11380", "11410", "11440", "11470",
-            "11500", "11530", "11545", "11560", "11590",
-            "11620", "11650", "11680", "11710", "11740"
-    );
+    public static final List<String> SEOUL_LAWD_CODES = SeoulLawdCodeRegistry.seoulLawdCodes();
 
     private final MolitRentIngestionService molitRentIngestionService;
     private final Clock clock;
@@ -58,13 +54,19 @@ public final class MolitRentInitialLoadRunner {
         List<FailedTask> failedTasks = new ArrayList<>();
         int successfulTaskCount = 0;
 
-        for (YearMonth dealYearMonth : targetYearMonths) {
-            for (String lawdCode : targetLawdCodes) {
-                try {
-                    molitRentIngestionService.ingestMonthlyTransactions(lawdCode, dealYearMonth);
-                    successfulTaskCount++;
-                } catch (RuntimeException exception) {
-                    failedTasks.add(new FailedTask(lawdCode, dealYearMonth, exception.getClass().getName()));
+        try (IngestionExecution execution = molitRentIngestionService.openExecution()) {
+            for (YearMonth dealYearMonth : targetYearMonths) {
+                for (String lawdCode : targetLawdCodes) {
+                    try {
+                        execution.ingestMonthlyTransactions(lawdCode, dealYearMonth);
+                        successfulTaskCount++;
+                    } catch (RuntimeException exception) {
+                        failedTasks.add(new FailedTask(
+                                lawdCode,
+                                dealYearMonth,
+                                exception.getClass().getName()
+                        ));
+                    }
                 }
             }
         }
