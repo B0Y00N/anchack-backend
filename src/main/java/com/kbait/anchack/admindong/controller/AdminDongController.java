@@ -2,10 +2,12 @@ package com.kbait.anchack.admindong.controller;
 
 import com.kbait.anchack.admindong.dto.response.AdminDongDetailResponse;
 import com.kbait.anchack.admindong.dto.response.AdminDongResponse;
+import com.kbait.anchack.admindong.dto.response.PlaceResponse;
 import com.kbait.anchack.admindong.service.AdminDongService;
 import com.kbait.anchack.common.response.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -53,6 +55,22 @@ public class AdminDongController {
         @RequestParam List<Long> ids
     ) {
         List<AdminDongDetailResponse> response = adminDongService.getAdminDongDetails(ids);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * 상세 화면 탭(통근/치안/생활 인프라) 지도 마커용 장소 좌표 조회(P2).
+     * categories를 안 주면 전체 카테고리를 반환한다.
+     *
+     * GET /api/admin-dongs/{adminDongId}/places?categories=CONVENIENCE_STORE,CAFE
+     */
+    @GetMapping("/{adminDongId}/places")
+    public ResponseEntity<ApiResponse<List<PlaceResponse>>> getPlaces(
+        @PathVariable Long adminDongId,
+        @RequestParam(required = false) List<String> categories
+    ) {
+        List<PlaceResponse> response = adminDongService.getPlaces(adminDongId, categories);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }

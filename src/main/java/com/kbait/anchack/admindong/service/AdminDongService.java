@@ -5,10 +5,12 @@ import com.kbait.anchack.admindong.dto.AdminDongMetricsRow;
 import com.kbait.anchack.admindong.dto.RentalAmountRow;
 import com.kbait.anchack.admindong.dto.response.AdminDongDetailResponse;
 import com.kbait.anchack.admindong.dto.response.AdminDongResponse;
+import com.kbait.anchack.admindong.dto.response.PlaceResponse;
 import com.kbait.anchack.admindong.dto.response.RentDistBucket;
 import com.kbait.anchack.admindong.mapper.AdminDongDetailMapper;
 import com.kbait.anchack.admindong.mapper.AdminDongMapper;
 import com.kbait.anchack.place.domain.Place;
+import com.kbait.anchack.place.domain.PlaceCategory;
 import com.kbait.anchack.place.mapper.PlaceMapper;
 import com.kbait.anchack.rental.mapper.RentalTransactionMapper;
 import org.springframework.stereotype.Service;
@@ -135,6 +137,44 @@ public class AdminDongService {
                         rentalRowsById.getOrDefault(adminDongId, List.of()),
                         policeStations))
                 .toList();
+    }
+
+    /**
+     * 행정동 상세 탭 지도 마커용 장소 좌표 조회(P2). categories가 없으면 전체 카테고리를
+     * 반환한다. CCTV처럼 한 동에 몇 백 개씩 있을 수 있어도 자르지 않는다 - 지도에 몇 개까지
+     * 찍을지/클러스터링할지는 프론트가 결정한다.
+     */
+    @Transactional(readOnly = true)
+    public List<PlaceResponse> getPlaces(Long adminDongId, List<String> categories) {
+        if (adminDongId == null) {
+            throw new IllegalArgumentException("adminDongId가 필요합니다.");
+        }
+
+        List<String> validatedCategories = categories == null
+                ? null
+                : categories.stream().map(this::toValidCategoryName).toList();
+
+        return placeMapper.findByAdminDongIdAndCategories(adminDongId, validatedCategories).stream()
+                .map(this::toPlaceResponse)
+                .toList();
+    }
+
+    private String toValidCategoryName(String category) {
+        try {
+            return PlaceCategory.valueOf(category).name();
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("지원하지 않는 값입니다: " + category);
+        }
+    }
+
+    private PlaceResponse toPlaceResponse(Place place) {
+        return PlaceResponse.builder()
+                .placeId(place.getId())
+                .category(place.getCategory())
+                .name(place.getName())
+                .lat(place.getLatitude())
+                .lng(place.getLongitude())
+                .build();
     }
 
     private AdminDongDetailResponse toDetailResponse(
