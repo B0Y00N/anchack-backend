@@ -204,7 +204,7 @@ public final class KakaoTransitDirectionsClient {
                 .lineNum(firstVehicle.map(KakaoTransitVehicle::getName).orElse(null))
                 .vehicleType(firstVehicle.map(KakaoTransitVehicle::getType).orElse(null))
                 .walkMin(sumStepMinutes(walkingSteps))
-                .subwayMin(sumStepMinutes(transitSteps))
+                .transitMin(sumStepMinutes(transitSteps))
                 .build();
     }
 

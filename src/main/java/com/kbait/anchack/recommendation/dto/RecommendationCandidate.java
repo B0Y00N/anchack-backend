@@ -16,5 +16,5 @@ public class RecommendationCandidate {
     private String lineNum;
     private String vehicleType;
     private Integer walkMin;
-    private Integer subwayMin;
+    private Integer transitMin;
 }

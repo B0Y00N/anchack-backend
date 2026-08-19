@@ -131,7 +131,7 @@ public class RecommendationScoreCalculator {
                 .lineNum(candidate.getLineNum())
                 .vehicleType(candidate.getVehicleType())
                 .walkMin(candidate.getWalkMin())
-                .subwayMin(candidate.getSubwayMin())
+                .transitMin(candidate.getTransitMin())
                 .categoryBreakdowns(breakdowns)
                 .build();
     }
@@ -202,7 +202,7 @@ public class RecommendationScoreCalculator {
                 .lineNum(recommendation.getLineNum())
                 .vehicleType(recommendation.getVehicleType())
                 .walkMin(recommendation.getWalkMin())
-                .subwayMin(recommendation.getSubwayMin())
+                .transitMin(recommendation.getTransitMin())
                 .categoryBreakdowns(recommendation.getCategoryBreakdowns())
                 .build();
     }

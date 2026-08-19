@@ -112,7 +112,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .lineNum(recommendation.getLineNum())
                 .vehicleType(recommendation.getVehicleType())
                 .walkMin(recommendation.getWalkMin())
-                .subwayMin(recommendation.getSubwayMin())
+                .transitMin(recommendation.getTransitMin())
                 .rank(recommendation.getRank())
                 .recommendationReason(reason.getRecommendationReason())
                 .caution(reason.getCaution())

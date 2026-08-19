@@ -118,7 +118,7 @@ class KakaoTransitDirectionsClientTest {
         CommuteResult result = client.findRoute(COORD, COORD, COORD, COORD);
 
         assertThat(result.getWalkMin()).isEqualTo(1);
-        assertThat(result.getSubwayMin()).isEqualTo(15);
+        assertThat(result.getTransitMin()).isEqualTo(15);
         assertThat(result.getTransportType()).isEqualTo("SUBWAY");
         assertThat(result.getLineNum()).isEqualTo("6호선");
         assertThat(result.getVehicleType()).isEqualTo("일반");
@@ -145,11 +145,32 @@ class KakaoTransitDirectionsClientTest {
         CommuteResult result = client.findRoute(COORD, COORD, COORD, COORD);
 
         assertThat(result.getWalkMin()).isEqualTo(8);
-        assertThat(result.getSubwayMin()).isEqualTo(10);
+        assertThat(result.getTransitMin()).isEqualTo(10);
         assertThat(result.getTransportType()).isEqualTo("BUS");
         assertThat(result.getLineNum()).isEqualTo("7017");
         assertThat(result.getVehicleType()).isEqualTo("지선");
         assertThat(result.getRoute()).isEqualTo("7017 새마을금고앞 → DMC파인시티자이, 경의중앙선 수색 → 디지털미디어시티");
+    }
+
+    @Test
+    void 버스만으로_구성된_경로도_transitMin에_버스_탑승_시간이_반영된다() throws Exception {
+        KakaoTransitRouteResponse response = OBJECT_MAPPER.readValue(
+                """
+                {"status": "OK", "routes": [{
+                  "properties": {"totalTime": 1269, "transfers": 0},
+                  "steps": [
+                    {"properties": {"type": "BUS", "time": 1269, "vehicles": [{"name": "7021", "type": "지선"}], "stops": [{"name": "증산역"}, {"name": "디지털미디어시티역"}]}}
+                  ]
+                }]}
+                """, KakaoTransitRouteResponse.class);
+        when(restTemplate.exchange(
+                any(), eq(HttpMethod.GET), any(), eq(KakaoTransitRouteResponse.class)))
+                .thenReturn(ResponseEntity.ok(response));
+
+        CommuteResult result = client.findRoute(COORD, COORD, COORD, COORD);
+
+        assertThat(result.getTransitMin()).isEqualTo(22);
+        assertThat(result.getWalkMin()).isNull();
     }
 
     @Test
@@ -165,7 +186,7 @@ class KakaoTransitDirectionsClientTest {
         CommuteResult result = client.findRoute(COORD, COORD, COORD, COORD);
 
         assertThat(result.getWalkMin()).isNull();
-        assertThat(result.getSubwayMin()).isNull();
+        assertThat(result.getTransitMin()).isNull();
         assertThat(result.getTransportType()).isNull();
         assertThat(result.getLineNum()).isNull();
         assertThat(result.getVehicleType()).isNull();

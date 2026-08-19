@@ -42,7 +42,7 @@ public class RecommendationRow {
     private String lineNum;
     private String vehicleType;
     private Integer walkMin;
-    private Integer subwayMin;
+    private Integer transitMin;
 
     /** INSERT 시점엔 쓰지 않고, recommendation_scores 행을 만들 때만 참조한다. */
     private List<CategoryScoreBreakdown> categoryBreakdowns;

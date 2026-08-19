@@ -204,7 +204,7 @@ public class CommuteFilter {
                     .lineNum(commuteResult.getLineNum())
                     .vehicleType(commuteResult.getVehicleType())
                     .walkMin(commuteResult.getWalkMin())
-                    .subwayMin(commuteResult.getSubwayMin())
+                    .transitMin(commuteResult.getTransitMin())
                     .build();
         } catch (RouteNotFoundException e) {
             Instant endedAt = Instant.now();

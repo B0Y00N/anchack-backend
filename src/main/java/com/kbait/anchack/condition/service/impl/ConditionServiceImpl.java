@@ -259,7 +259,7 @@ public class ConditionServiceImpl implements ConditionService {
                 .lineNum(row.getLineNum())
                 .vehicleType(row.getVehicleType())
                 .walkMin(row.getWalkMin())
-                .subwayMin(row.getSubwayMin())
+                .transitMin(row.getTransitMin())
                 .recommendationReason(row.getRecommendationReason())
                 .caution(row.getCaution())
                 .build();

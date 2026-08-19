@@ -22,6 +22,6 @@ public class RankedRecommendation {
     private String lineNum;
     private String vehicleType;
     private Integer walkMin;
-    private Integer subwayMin;
+    private Integer transitMin;
     private List<CategoryScoreBreakdown> categoryBreakdowns;
 }
