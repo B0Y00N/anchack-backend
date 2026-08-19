@@ -254,6 +254,12 @@ public class ConditionServiceImpl implements ConditionService {
                 .rank(row.getRank())
                 .commuteTime(row.getCommuteTime())
                 .transferCount(row.getTransferCount())
+                .route(row.getRoute())
+                .transportType(row.getTransportType())
+                .lineNum(row.getLineNum())
+                .vehicleType(row.getVehicleType())
+                .walkMin(row.getWalkMin())
+                .transitMin(row.getTransitMin())
                 .recommendationReason(row.getRecommendationReason())
                 .caution(row.getCaution())
                 .build();

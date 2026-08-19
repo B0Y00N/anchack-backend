@@ -26,6 +26,21 @@
       AND transaction_date &lt; #{endDateExclusive}
   </select>
 
+  <select
+    id="findAmountsByAdminDongIdsAndRentalType"
+    resultType="com.kbait.anchack.admindong.dto.RentalAmountRow">
+    SELECT
+      admin_dong_id AS adminDongId,
+      deposit_amount AS depositAmount,
+      monthly_rent_amount AS monthlyRentAmount
+    FROM rental_transactions
+    WHERE rental_type = #{rentalType}
+      AND admin_dong_id IN
+      <foreach collection="adminDongIds" item="adminDongId" open="(" separator="," close=")">
+        #{adminDongId}
+      </foreach>
+  </select>
+
   <delete id="deleteByGuCodeAndTransactionDateRange">
     DELETE FROM rental_transactions
     WHERE gu_code = #{guCode}

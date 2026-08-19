@@ -40,7 +40,7 @@ public final class KakaoPlaceCollectionTargetProvider {
 
     private static final List<KakaoPlaceSearchSpec> SEARCH_SPECS = List.of(
             category("MT1", PlaceCategory.MART),
-            category("CS2", PlaceCategory.CONVENIENT_STORE),
+            category("CS2", PlaceCategory.CONVENIENCE_STORE),
             category("BK9", PlaceCategory.BANK),
             category("FD6", PlaceCategory.RESTAURANT),
             category("CE7", PlaceCategory.CAFE),
