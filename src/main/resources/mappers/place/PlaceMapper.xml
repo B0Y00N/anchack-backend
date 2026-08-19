@@ -36,4 +36,42 @@
       updated_at = CURRENT_TIMESTAMP
   </insert>
 
+  <!-- 행정동 상세(P1-b)의 최근접 지구대 조회용. 서울 전체 POLICE 지점 수가 많지 않아
+       카테고리 전체를 가져온 뒤 애플리케이션에서 Haversine 최근접을 계산한다. -->
+  <select id="findByCategory" resultType="com.kbait.anchack.place.domain.Place">
+    SELECT
+      place_id AS id,
+      external_id AS externalId,
+      admin_dong_id AS adminDongId,
+      category,
+      name,
+      latitude,
+      longitude,
+      data_source_id AS dataSourceId
+    FROM places
+    WHERE category = #{category}
+  </select>
+
+  <!-- 행정동별 장소 좌표 조회(P2). CCTV처럼 한 동에 몇 백 개씩 있을 수 있어도 자르지 않는다 -
+       지도에 몇 개까지 찍을지는 프론트가 결정한다. -->
+  <select id="findByAdminDongIdAndCategories" resultType="com.kbait.anchack.place.domain.Place">
+    SELECT
+      place_id AS id,
+      external_id AS externalId,
+      admin_dong_id AS adminDongId,
+      category,
+      name,
+      latitude,
+      longitude,
+      data_source_id AS dataSourceId
+    FROM places
+    WHERE admin_dong_id = #{adminDongId}
+    <if test="categories != null and !categories.isEmpty()">
+      AND category IN
+      <foreach collection="categories" item="category" open="(" separator="," close=")">
+        #{category}
+      </foreach>
+    </if>
+  </select>
+
 </mapper>

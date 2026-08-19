@@ -74,4 +74,16 @@
 
   </select>
 
+  <select id="findByIds"
+          resultMap="adminDongResultMap">
+
+    <include refid="adminDongSelectColumns"/>
+
+    WHERE ad.admin_dong_id IN
+    <foreach collection="adminDongIds" item="adminDongId" open="(" separator="," close=")">
+      #{adminDongId}
+    </foreach>
+
+  </select>
+
 </mapper>

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kbait.anchack.admindong.mapper.AdminDongDetailMapper">
+
+  <!--
+    행정동 상세 화면(P1-b)용 지표 배치 조회.
+
+    safety/healthcare/life_convenience_metrics는 재계산 배치가 돌 때마다 UPSERT가 아니라
+    단순 INSERT로 쌓여서 admin_dong_id당 여러 행(이력)이 존재한다(예: admin_dong_id=199의
+    healthcare_metrics가 2행). 단순 LEFT JOIN으로 붙이면 곱집합으로 뻥튀기되므로(실측:
+    후보 5개 요청에 80행 반환), gu_crime_stats에 이미 쓰던 "PK 최대값 = 최신 행" 서브쿼리
+    패턴을 나머지 지표 테이블에도 동일하게 적용해 admin_dong_id당 정확히 한 행만 붙인다.
+
+    gyms/parks는 sports_metrics.sports_count/nature_metrics.nature_count(체육시설/자연공간
+    전체를 넓게 집계한 점수용 카운트) 대신, places에서 category='GYM'/'PARK'만 직접
+    COUNT해서 문서가 요구하는 "헬스장 개수"/"공원 개수" 의미에 정확히 맞춘다.
+  -->
+  <!-- 배치 요청의 admin_dong_id 목록. places 집계 서브쿼리(각각 places 하나만 스코프에 있어
+       컬럼명이 모호하지 않음)에서 재사용해서 요청 범위 밖 행정동까지 스캔/그룹화하지 않도록
+       한다(PR 리뷰 지적사항). 바깥쪽 WHERE는 조인된 여러 테이블이 전부 admin_dong_id 컬럼을
+       노출해 이 조각을 그대로 쓰면 모호해지므로 ad.admin_dong_id를 직접 명시한다. -->
+  <sql id="adminDongIdFilter">
+    admin_dong_id IN
+    <foreach collection="adminDongIds" item="adminDongId" open="(" separator="," close=")">
+      #{adminDongId}
+    </foreach>
+  </sql>
+
+  <select id="findMetricsByIds" resultType="com.kbait.anchack.admindong.dto.AdminDongMetricsRow">
+    SELECT
+      ad.admin_dong_id AS adminDongId,
+      sm.safety_score AS safetyScore,
+      CASE WHEN ad.dong_population > 0
+        THEN ROUND(sm.cctv_count / (ad.dong_population / 1000), 2)
+        ELSE NULL
+      END AS cctvPer1000,
+      latest_crime.crime_rate AS crimeRate,
+      hm.hospital_count AS hospitalCount,
+      lcm.department_store_count AS departmentStoreCount,
+      lcm.mart_count AS martCount,
+      COALESCE(gym.gym_count, 0) AS gymCount,
+      COALESCE(park.park_count, 0) AS parkCount,
+      COALESCE(conv.convenience_store_count, 0) AS convenienceStoreCount
+    FROM admin_dongs ad
+    LEFT JOIN safety_metrics sm ON sm.safety_id = (
+      SELECT MAX(safety_id) FROM safety_metrics WHERE admin_dong_id = ad.admin_dong_id
+    )
+    LEFT JOIN healthcare_metrics hm ON hm.healthcare_id = (
+      SELECT MAX(healthcare_id) FROM healthcare_metrics WHERE admin_dong_id = ad.admin_dong_id
+    )
+    LEFT JOIN life_convenience_metrics lcm ON lcm.convenience_id = (
+      SELECT MAX(convenience_id) FROM life_convenience_metrics WHERE admin_dong_id = ad.admin_dong_id
+    )
+    LEFT JOIN (
+      SELECT gcs.gu_code, gcs.crime_rate
+      FROM gu_crime_stats gcs
+      JOIN (
+        SELECT gu_code, MAX(gu_crime_id) AS latest_gu_crime_id
+        FROM gu_crime_stats
+        GROUP BY gu_code
+      ) latest ON latest.gu_code = gcs.gu_code AND latest.latest_gu_crime_id = gcs.gu_crime_id
+    ) latest_crime ON latest_crime.gu_code = ad.gu_code
+    LEFT JOIN (
+      SELECT admin_dong_id, COUNT(*) AS convenience_store_count
+      FROM places
+      WHERE category = 'CONVENIENCE_STORE'
+        AND <include refid="adminDongIdFilter"/>
+      GROUP BY admin_dong_id
+    ) conv ON conv.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT admin_dong_id, COUNT(*) AS gym_count
+      FROM places
+      WHERE category = 'GYM'
+        AND <include refid="adminDongIdFilter"/>
+      GROUP BY admin_dong_id
+    ) gym ON gym.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT admin_dong_id, COUNT(*) AS park_count
+      FROM places
+      WHERE category = 'PARK'
+        AND <include refid="adminDongIdFilter"/>
+      GROUP BY admin_dong_id
+    ) park ON park.admin_dong_id = ad.admin_dong_id
+    WHERE ad.admin_dong_id IN
+    <foreach collection="adminDongIds" item="adminDongId" open="(" separator="," close=")">
+      #{adminDongId}
+    </foreach>
+  </select>
+
+</mapper>

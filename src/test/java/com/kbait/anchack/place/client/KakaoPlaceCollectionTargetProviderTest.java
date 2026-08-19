@@ -25,7 +25,7 @@ class KakaoPlaceCollectionTargetProviderTest {
                 .extracting(PlaceCollectionTarget::getPlaceCategory)
                 .contains(
                         PlaceCategory.MART,
-                        PlaceCategory.CONVENIENT_STORE,
+                        PlaceCategory.CONVENIENCE_STORE,
                         PlaceCategory.PHARMACY,
                         PlaceCategory.SUBWAY_STATION,
                         PlaceCategory.RIVER,
