@@ -4,9 +4,11 @@ import com.kbait.anchack.admindong.domain.AdminDong;
 import com.kbait.anchack.admindong.dto.AdminDongMetricsRow;
 import com.kbait.anchack.admindong.dto.RentalAmountRow;
 import com.kbait.anchack.admindong.dto.response.AdminDongDetailResponse;
+import com.kbait.anchack.admindong.dto.response.PlaceResponse;
 import com.kbait.anchack.admindong.mapper.AdminDongDetailMapper;
 import com.kbait.anchack.admindong.mapper.AdminDongMapper;
 import com.kbait.anchack.place.domain.Place;
+import com.kbait.anchack.place.domain.PlaceCategory;
 import com.kbait.anchack.place.mapper.PlaceMapper;
 import com.kbait.anchack.rental.mapper.RentalTransactionMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -180,6 +183,50 @@ class AdminDongServiceTest {
 
         assertThat(response.getPolice()).startsWith("증산지구대");
         assertThat(response.getPolice()).contains("도보");
+    }
+
+    @Test
+    void adminDongId가_null이면_예외() {
+        assertThatThrownBy(() -> service.getPlaces(null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 유효하지_않은_카테고리는_예외() {
+        assertThatThrownBy(() -> service.getPlaces(1L, List.of("INVALID_CATEGORY")))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void categories가_없으면_카테고리_제한_없이_조회한다() {
+        when(placeMapper.findByAdminDongIdAndCategories(eq(1L), eq(null))).thenReturn(List.of());
+
+        service.getPlaces(1L, null);
+
+        verify(placeMapper).findByAdminDongIdAndCategories(1L, null);
+    }
+
+    @Test
+    void 카테고리는_enum_이름_그대로_매퍼에_전달되고_결과가_정확히_매핑된다() {
+        when(placeMapper.findByAdminDongIdAndCategories(eq(1L), eq(List.of("CONVENIENCE_STORE", "GYM"))))
+                .thenReturn(List.of(
+                        Place.builder()
+                                .id(10L)
+                                .category(PlaceCategory.CONVENIENCE_STORE)
+                                .name("GS25 OO점")
+                                .latitude(new BigDecimal("37.5871"))
+                                .longitude(new BigDecimal("126.9095"))
+                                .build()
+                ));
+
+        List<PlaceResponse> result = service.getPlaces(1L, List.of("CONVENIENCE_STORE", "GYM"));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getPlaceId()).isEqualTo(10L);
+        assertThat(result.get(0).getCategory()).isEqualTo(PlaceCategory.CONVENIENCE_STORE);
+        assertThat(result.get(0).getName()).isEqualTo("GS25 OO점");
+        assertThat(result.get(0).getLat()).isEqualByComparingTo("37.5871");
+        assertThat(result.get(0).getLng()).isEqualByComparingTo("126.9095");
     }
 
     private AdminDong adminDong(Long id, String guName, String dongName) {
