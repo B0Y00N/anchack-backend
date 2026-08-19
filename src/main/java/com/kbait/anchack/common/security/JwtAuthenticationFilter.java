@@ -13,19 +13,24 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class JwtAuthenticationFilter implements Filter {
 
     public static final String USER_ID_ATTRIBUTE =
         "AUTH_USER_ID";
 
-    // JWT 인증 없이 접근할 수 있는 경로
+    // 메서드와 무관하게 공개되는 경로
     private static final List<String> WHITELIST =
         Arrays.asList(
             "/",
             "/api/health",
             "/api/auth/kakao/callback"
         );
+
+    // GET으로만 공개되는 리뷰 상세 경로
+    private static final Pattern REVIEW_DETAIL_PATH =
+        Pattern.compile("^/api/reviews/\\d+$");
 
     private JwtTokenProvider jwtTokenProvider;
 
@@ -69,7 +74,8 @@ public class JwtAuthenticationFilter implements Filter {
             getRequestPath(request);
 
         // 공개 경로는 JWT 인증 없이 Controller로 전달한다.
-        if (isWhitelisted(requestPath)) {
+        if (isWhitelisted(requestPath, request.getMethod())) {
+            trySetOptionalAuthenticatedUser(request);
             chain.doFilter(request, response);
             return;
         }
@@ -136,6 +142,38 @@ public class JwtAuthenticationFilter implements Filter {
         chain.doFilter(request, response);
     }
 
+    /**
+     * 공개 조회 요청에 유효한 토큰이 있으면 선택적으로 사용자 ID를 설정한다.
+     * 토큰이 없거나 잘못된 경우에도 공개 조회 자체는 계속 진행한다.
+     */
+    private void trySetOptionalAuthenticatedUser(
+        HttpServletRequest request
+    ) {
+        String authorizationHeader = request.getHeader("Authorization");
+
+        if (authorizationHeader == null
+            || !authorizationHeader.startsWith("Bearer ")) {
+            return;
+        }
+
+        String token = authorizationHeader.substring(7).trim();
+
+        if (token.isEmpty()) {
+            return;
+        }
+
+        try {
+            if (jwtTokenProvider.validateToken(token)) {
+                request.setAttribute(
+                    USER_ID_ATTRIBUTE,
+                    jwtTokenProvider.getUserId(token)
+                );
+            }
+        } catch (Exception ignored) {
+            // 공개 API의 선택적 인증이므로 잘못된 토큰은 비로그인으로 처리한다.
+        }
+    }
+
     // Context Path를 제외한 실제 요청 경로를 반환한다.
     private String getRequestPath(
         HttpServletRequest request
@@ -159,12 +197,30 @@ public class JwtAuthenticationFilter implements Filter {
         return requestUri;
     }
 
-    // JWT 인증 없이 접근할 수 있는 경로인지 확인한다.
+    // 요청 경로와 HTTP 메서드 조합으로 공개 여부를 확인한다.
     private boolean isWhitelisted(
-        String requestPath
+        String requestPath,
+        String method
     ) {
 
-        return WHITELIST.contains(requestPath);
+        if (WHITELIST.contains(requestPath)) {
+            return true;
+        }
+
+        if (!"GET".equalsIgnoreCase(method)) {
+            return false;
+        }
+
+        // 행정동 정적 경로 및 하위 조회 경로
+        if (requestPath.equals("/api/admin-dongs")
+            || requestPath.startsWith("/api/admin-dongs/")) {
+            return true;
+        }
+
+        // 리뷰 목록, 숫자 ID 상세 조회, 리뷰 카테고리 조회
+        return requestPath.equals("/api/reviews")
+            || REVIEW_DETAIL_PATH.matcher(requestPath).matches()
+            || requestPath.equals("/api/review-categories");
     }
 
     // JWT 인증 실패 응답을 반환한다.
