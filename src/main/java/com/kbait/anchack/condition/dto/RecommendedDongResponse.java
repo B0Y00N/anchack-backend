@@ -19,6 +19,12 @@ public class RecommendedDongResponse {
     private Integer rank;
     private Integer commuteTime;
     private Integer transferCount;
+    private String route;
+    private String transportType;
+    private String lineNum;
+    private String vehicleType;
+    private Integer walkMin;
+    private Integer subwayMin;
     private String recommendationReason;
     private String caution;
 }

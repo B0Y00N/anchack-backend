@@ -33,6 +33,17 @@ public class RecommendationRow {
     private String recommendationReason;
     private String caution;
 
+    /**
+     * 통근 상세 표시용 정보. commuteTime/transferCount와 달리 recommendations 테이블
+     * 컬럼이 아니라 응답 조립 전용이라 insertBatch의 INSERT 문에는 참조되지 않는다.
+     */
+    private String route;
+    private String transportType;
+    private String lineNum;
+    private String vehicleType;
+    private Integer walkMin;
+    private Integer subwayMin;
+
     /** INSERT 시점엔 쓰지 않고, recommendation_scores 행을 만들 때만 참조한다. */
     private List<CategoryScoreBreakdown> categoryBreakdowns;
 

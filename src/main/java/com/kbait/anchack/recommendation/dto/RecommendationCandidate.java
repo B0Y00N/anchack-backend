@@ -11,4 +11,10 @@ public class RecommendationCandidate {
     private Long adminDongId;
     private Integer commuteTime;
     private Integer transferCount;
+    private String route;
+    private String transportType;
+    private String lineNum;
+    private String vehicleType;
+    private Integer walkMin;
+    private Integer subwayMin;
 }
