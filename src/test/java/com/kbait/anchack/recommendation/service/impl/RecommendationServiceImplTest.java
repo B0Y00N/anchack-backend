@@ -81,6 +81,18 @@ class RecommendationServiceImplTest {
     }
 
     @Test
+    void admin_dong의_구이름_동이름_좌표를_결과에_채운다() {
+        when(recommendationScoreCalculator.calculate(any(), any())).thenReturn(rankedList(1));
+
+        List<RecommendationRow> result = service.generate(condition());
+
+        assertThat(result.get(0).getGuName()).isEqualTo("마포구");
+        assertThat(result.get(0).getDongName()).isEqualTo("서교동");
+        assertThat(result.get(0).getLatitude()).isEqualByComparingTo("37.5");
+        assertThat(result.get(0).getLongitude()).isEqualByComparingTo("127.0");
+    }
+
+    @Test
     void 삭제는_scores_먼저_recommendations_다음_INSERT_순서로_호출된다() {
         when(recommendationScoreCalculator.calculate(any(), any())).thenReturn(rankedList(1));
 
@@ -146,6 +158,8 @@ class RecommendationServiceImplTest {
         AdminDong adminDong = new AdminDong();
         adminDong.setGuName("마포구");
         adminDong.setName("서교동");
+        adminDong.setLatitude(new BigDecimal("37.5"));
+        adminDong.setLongitude(new BigDecimal("127.0"));
 
         return adminDong;
     }

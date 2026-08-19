@@ -10,6 +10,10 @@ import java.math.BigDecimal;
 public class RecommendedDongResponse {
 
     private Long adminDongId;
+    private String guName;
+    private String dongName;
+    private BigDecimal lat;
+    private BigDecimal lng;
     private BigDecimal totalScore;
     private BigDecimal dataCoverageRate;
     private Integer rank;
