@@ -99,6 +99,79 @@ class KakaoTransitDirectionsClientTest {
                 .isInstanceOf(KakaoRouteApiException.class);
     }
 
+    @Test
+    void 환승없이_지하철_한_구간이면_해당_스텝_기준으로_통근_상세를_채운다() throws Exception {
+        KakaoTransitRouteResponse response = OBJECT_MAPPER.readValue(
+                """
+                {"status": "OK", "routes": [{
+                  "properties": {"totalTime": 1095, "transfers": 0},
+                  "steps": [
+                    {"properties": {"type": "WALKING", "time": 60, "vehicles": [], "stops": [{"name": "출발지"}, {"name": "증산역"}]}},
+                    {"properties": {"type": "SUBWAY", "time": 900, "vehicles": [{"name": "6호선", "type": "일반"}], "stops": [{"name": "증산(명지대앞)"}, {"name": "디지털미디어시티"}]}}
+                  ]
+                }]}
+                """, KakaoTransitRouteResponse.class);
+        when(restTemplate.exchange(
+                any(), eq(HttpMethod.GET), any(), eq(KakaoTransitRouteResponse.class)))
+                .thenReturn(ResponseEntity.ok(response));
+
+        CommuteResult result = client.findRoute(COORD, COORD, COORD, COORD);
+
+        assertThat(result.getWalkMin()).isEqualTo(1);
+        assertThat(result.getSubwayMin()).isEqualTo(15);
+        assertThat(result.getTransportType()).isEqualTo("SUBWAY");
+        assertThat(result.getLineNum()).isEqualTo("6호선");
+        assertThat(result.getVehicleType()).isEqualTo("일반");
+        assertThat(result.getRoute()).isEqualTo("6호선 증산(명지대앞) → 디지털미디어시티");
+    }
+
+    @Test
+    void 환승이_있으면_route는_모든_구간을_이어붙이고_lineNum은_첫_구간_기준으로_채운다() throws Exception {
+        KakaoTransitRouteResponse response = OBJECT_MAPPER.readValue(
+                """
+                {"status": "OK", "routes": [{
+                  "properties": {"totalTime": 2033, "transfers": 1},
+                  "steps": [
+                    {"properties": {"type": "BUS", "time": 463, "vehicles": [{"name": "7017", "type": "지선"}], "stops": [{"name": "새마을금고앞"}, {"name": "DMC파인시티자이"}]}},
+                    {"properties": {"type": "WALKING", "time": 458, "vehicles": [], "stops": [{"name": "DMC파인시티자이"}, {"name": "수색"}]}},
+                    {"properties": {"type": "SUBWAY", "time": 120, "vehicles": [{"name": "경의중앙선", "type": "일반"}], "stops": [{"name": "수색"}, {"name": "디지털미디어시티"}]}}
+                  ]
+                }]}
+                """, KakaoTransitRouteResponse.class);
+        when(restTemplate.exchange(
+                any(), eq(HttpMethod.GET), any(), eq(KakaoTransitRouteResponse.class)))
+                .thenReturn(ResponseEntity.ok(response));
+
+        CommuteResult result = client.findRoute(COORD, COORD, COORD, COORD);
+
+        assertThat(result.getWalkMin()).isEqualTo(8);
+        assertThat(result.getSubwayMin()).isEqualTo(10);
+        assertThat(result.getTransportType()).isEqualTo("BUS");
+        assertThat(result.getLineNum()).isEqualTo("7017");
+        assertThat(result.getVehicleType()).isEqualTo("지선");
+        assertThat(result.getRoute()).isEqualTo("7017 새마을금고앞 → DMC파인시티자이, 경의중앙선 수색 → 디지털미디어시티");
+    }
+
+    @Test
+    void steps가_없으면_통근_상세_필드는_전부_null이다() throws Exception {
+        KakaoTransitRouteResponse response = OBJECT_MAPPER.readValue(
+                """
+                {"status": "OK", "routes": [{"properties": {"totalTime": 1800, "transfers": 1}}]}
+                """, KakaoTransitRouteResponse.class);
+        when(restTemplate.exchange(
+                any(), eq(HttpMethod.GET), any(), eq(KakaoTransitRouteResponse.class)))
+                .thenReturn(ResponseEntity.ok(response));
+
+        CommuteResult result = client.findRoute(COORD, COORD, COORD, COORD);
+
+        assertThat(result.getWalkMin()).isNull();
+        assertThat(result.getSubwayMin()).isNull();
+        assertThat(result.getTransportType()).isNull();
+        assertThat(result.getLineNum()).isNull();
+        assertThat(result.getVehicleType()).isNull();
+        assertThat(result.getRoute()).isNull();
+    }
+
     private HttpClientErrorException tooManyRequests() {
         return HttpClientErrorException.create(
                 HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", new HttpHeaders(), new byte[0], StandardCharsets.UTF_8);
