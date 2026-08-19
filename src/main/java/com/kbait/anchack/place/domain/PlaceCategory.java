@@ -21,6 +21,6 @@ public enum PlaceCategory {
     BANK,
     CAFE,
     RESTAURANT,
-    CONVENIENT_STORE,
+    CONVENIENCE_STORE,
     TOWN_OFFICE
 }
