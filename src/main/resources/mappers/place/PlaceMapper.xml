@@ -36,4 +36,20 @@
       updated_at = CURRENT_TIMESTAMP
   </insert>
 
+  <!-- 행정동 상세(P1-b)의 최근접 지구대 조회용. 서울 전체 POLICE 지점 수가 많지 않아
+       카테고리 전체를 가져온 뒤 애플리케이션에서 Haversine 최근접을 계산한다. -->
+  <select id="findByCategory" resultType="com.kbait.anchack.place.domain.Place">
+    SELECT
+      place_id AS id,
+      external_id AS externalId,
+      admin_dong_id AS adminDongId,
+      category,
+      name,
+      latitude,
+      longitude,
+      data_source_id AS dataSourceId
+    FROM places
+    WHERE category = #{category}
+  </select>
+
 </mapper>
