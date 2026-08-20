@@ -28,4 +28,21 @@
     </foreach>
   </insert>
 
+  <select id="findByConditionId" resultType="com.kbait.anchack.recommendation.dto.RecommendationRow">
+    SELECT
+      recommendation_id AS recommendationId,
+      condition_id AS conditionId,
+      admin_dong_id AS adminDongId,
+      total_score AS totalScore,
+      data_coverage_rate AS dataCoverageRate,
+      commute_time AS commuteTime,
+      transfer_count AS transferCount,
+      `rank`,
+      recommendation_reason AS recommendationReason,
+      caution
+    FROM recommendations
+    WHERE condition_id = #{conditionId}
+    ORDER BY `rank` ASC
+  </select>
+
 </mapper>
