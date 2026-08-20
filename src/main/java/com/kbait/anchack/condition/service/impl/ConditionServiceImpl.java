@@ -83,9 +83,6 @@ public class ConditionServiceImpl implements ConditionService {
             "ONE_ROOM", "원룸"
     );
 
-    /** 프론트는 "만원" 단위로 보내지만, 컨벤션대로 내부/DB는 "원" 단위 정수로 다룬다. */
-    private static final long MANWON_TO_WON = 10_000L;
-
     private static final Set<String> VALID_PRIORITY_CATEGORIES = Set.of(
             "TRANSIT", "SAFETY", "SPORTS", "FOOD", "CONVENIENCE", "HEALTHCARE", "CULTURE", "NATURE", "SILENCE"
     );
@@ -206,8 +203,8 @@ public class ConditionServiceImpl implements ConditionService {
                 .maxCommuteTime(row.getMaxCommuteTime())
                 .maxTransferCount(row.getMaxTransferCount())
                 .minArea(row.getMinArea())
-                .maxDeposit(toManwon(row.getMaxDeposit()))
-                .maxRent(toManwonInt(row.getMaxRent()))
+                .maxDeposit(row.getMaxDeposit())
+                .maxRent(row.getMaxRent() == null ? null : Math.toIntExact(row.getMaxRent()))
                 .createdAt(row.getCreatedAt())
                 .build();
     }
@@ -227,14 +224,6 @@ public class ConditionServiceImpl implements ConditionService {
                 .recommendationReason(row.getRecommendationReason())
                 .caution(row.getCaution())
                 .build();
-    }
-
-    private Long toManwon(Long won) {
-        return won == null ? null : won / MANWON_TO_WON;
-    }
-
-    private Integer toManwonInt(Long won) {
-        return won == null ? null : Math.toIntExact(won / MANWON_TO_WON);
     }
 
     private String reverseTranslateOrThrow(Map<String, String> labels, String koreanValue) {
@@ -257,17 +246,9 @@ public class ConditionServiceImpl implements ConditionService {
                 .maxCommuteTime(request.getMaxCommuteTime())
                 .maxTransferCount(request.getMaxTransferCount())
                 .minArea(request.getMinArea())
-                .maxDeposit(toWon(request.getMaxDeposit()))
-                .maxRent(toWon(request.getMaxRent() == null ? null : request.getMaxRent().longValue()))
+                .maxDeposit(request.getMaxDeposit())
+                .maxRent(request.getMaxRent() == null ? null : request.getMaxRent().longValue())
                 .build();
-    }
-
-    private Long toWon(Long manwon) {
-        return manwon == null ? null : manwon * MANWON_TO_WON;
-    }
-
-    private Integer toWonInt(Integer manwon) {
-        return manwon == null ? null : Math.toIntExact(manwon * MANWON_TO_WON);
     }
 
     private Map<String, BigDecimal> buildCategoryWeights(List<String> priorityCategories) {
@@ -354,8 +335,8 @@ public class ConditionServiceImpl implements ConditionService {
                 .guCodes(request.getGuCodes())
                 .essentialCategories(translateEssentials(request.getEssentialCategories()))
                 .preferredHouseTypes(translateHouseTypes(request.getPreferredHouseTypes()))
-                .maxDeposit(toWon(request.getMaxDeposit()))
-                .maxRent(toWonInt(request.getMaxRent()))
+                .maxDeposit(request.getMaxDeposit())
+                .maxRent(request.getMaxRent())
                 .minArea(request.getMinArea())
                 .destAddress(request.getDestAddress())
                 .commuteType(translateOrThrow(COMMUTE_TYPE_CODES, request.getCommuteType()))
