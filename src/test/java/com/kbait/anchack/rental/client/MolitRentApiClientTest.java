@@ -49,7 +49,7 @@ class MolitRentApiClientTest {
     void setUp() {
         RestTemplate restTemplate = new RestTemplate();
         server = MockRestServiceServer.bindTo(restTemplate).build();
-        client = createClient(restTemplate, FAKE_SERVICE_KEY);
+        client = createClient(restTemplate, ENCODED_FAKE_SERVICE_KEY);   // 이미 인코딩된 키를 저장
     }
 
     @ParameterizedTest
