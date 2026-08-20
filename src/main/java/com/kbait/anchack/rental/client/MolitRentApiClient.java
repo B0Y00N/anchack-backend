@@ -279,10 +279,8 @@ public final class MolitRentApiClient {
             int pageNo,
             String serviceKey
     ) {
-        String encodedServiceKey = URLEncoder.encode(serviceKey, StandardCharsets.UTF_8);
-
         return UriComponentsBuilder.fromHttpUrl(apiCategory.getEndpoint())
-                .queryParam("serviceKey", encodedServiceKey)
+                .queryParam("serviceKey", serviceKey)
                 .queryParam("LAWD_CD", guCode)
                 .queryParam("DEAL_YMD", dealYearMonth.format(DEAL_YEAR_MONTH_FORMATTER))
                 .queryParam("pageNo", pageNo)
