@@ -6,7 +6,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 
-/** admin_dong_id + house_type별 최신 property_metrics 한 건. 주거유형·예산 하드필터 판정용. */
+/** property_metrics 스냅샷의 admin_dong_id + rental_type + house_type 집계 행. */
 @Getter
 @Setter
 @NoArgsConstructor

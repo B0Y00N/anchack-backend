@@ -295,6 +295,7 @@ ORDER BY target_months.month_start, target_gus.gu_code;
 `admin_dong_id`를 저장한다. 주소 검색 결과가 없거나 경계·DB 코드가 없으면 해당 거래만 `NULL`로
 저장한다. 현재 국토부 단독·다가구 응답에는 지번이 없어 정확한 행정동을 결정할 수 없으므로 거래는
 버리지 않고 `admin_dong_id = NULL`로 저장한다. 법정동명과 행정동명을 직접 맞추거나 임의 분배하지
-않는다. `property_metrics` 생성은 여전히 후속 작업이다.
+않는다. `property_metrics`는 `admin_dong_id`가 매핑된 전체 거래만 그룹별로 집계하며,
+관리자 재계산 요청 시 기존 내용을 삭제하고 단일 스냅샷으로 다시 만든다.
 
 3. `RootConfig`가 기동 시 `src/main/resources/db/migration`의 Flyway 마이그레이션을 자동 실행하므로 별도 스키마 적용 작업은 필요 없습니다.
