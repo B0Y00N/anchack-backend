@@ -1,10 +1,15 @@
 package com.kbait.anchack.condition.service.impl;
 
+import com.kbait.anchack.admindong.domain.AdminDong;
+import com.kbait.anchack.admindong.mapper.AdminDongMapper;
+import com.kbait.anchack.common.exception.ForbiddenException;
+import com.kbait.anchack.common.exception.NotFoundException;
 import com.kbait.anchack.condition.dto.ConditionEssentialRow;
 import com.kbait.anchack.condition.dto.ConditionGuRow;
 import com.kbait.anchack.condition.dto.ConditionWeightRow;
 import com.kbait.anchack.condition.dto.PreferredHouseTypeRow;
 import com.kbait.anchack.condition.dto.RecommendedDongResponse;
+import com.kbait.anchack.condition.dto.SavedConditionResponse;
 import com.kbait.anchack.condition.dto.UserConditionCreateRequest;
 import com.kbait.anchack.condition.dto.UserConditionCreateResponse;
 import com.kbait.anchack.condition.dto.UserConditionRow;
@@ -16,6 +21,7 @@ import com.kbait.anchack.condition.mapper.UserConditionMapper;
 import com.kbait.anchack.condition.service.ConditionService;
 import com.kbait.anchack.recommendation.dto.ConditionBundle;
 import com.kbait.anchack.recommendation.dto.RecommendationRow;
+import com.kbait.anchack.recommendation.mapper.RecommendationMapper;
 import com.kbait.anchack.recommendation.service.RecommendationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +32,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 프론트 영문 코드(예: "MONTHLY", "CONVENIENCE_STORE")를 DB의 한글 ENUM 값으로
@@ -44,6 +52,18 @@ public class ConditionServiceImpl implements ConditionService {
     private static final Map<String, String> COMMUTE_TYPE_CODES = Map.of(
             "PUBLIC_TRANSIT", "대중교통",
             "CAR", "자가용"
+    );
+
+    /** RENTAL_TYPE_CODES/COMMUTE_TYPE_CODES의 역방향. 저장된 조건을 응답으로 돌려줄 때
+     * DB의 한글 ENUM 값을 프론트가 원래 보냈던 영문 코드로 되돌리는 데 쓴다. */
+    private static final Map<String, String> RENTAL_TYPE_LABELS = Map.of(
+            "월세", "MONTHLY",
+            "전세", "JEONSE"
+    );
+
+    private static final Map<String, String> COMMUTE_TYPE_LABELS = Map.of(
+            "대중교통", "PUBLIC_TRANSIT",
+            "자가용", "CAR"
     );
 
     private static final Map<String, String> ESSENTIAL_CATEGORY_CODES = Map.of(
@@ -76,6 +96,8 @@ public class ConditionServiceImpl implements ConditionService {
     private final PreferredHouseTypeMapper preferredHouseTypeMapper;
     private final ConditionGuMapper conditionGuMapper;
     private final RecommendationService recommendationService;
+    private final RecommendationMapper recommendationMapper;
+    private final AdminDongMapper adminDongMapper;
 
     @Override
     @Transactional
@@ -95,6 +117,134 @@ public class ConditionServiceImpl implements ConditionService {
         List<RecommendationRow> recommendations = recommendationService.generate(bundle);
 
         return toResponse(conditionId, recommendations);
+    }
+
+    @Override
+    @Transactional
+    public void saveCondition(Long userId, Long conditionId, String title) {
+        UserConditionRow condition = requireOwnedCondition(userId, conditionId);
+
+        userConditionMapper.markSaved(condition.getConditionId(), normalizeTitle(title));
+    }
+
+    /** 공백만 있는 title은 "입력 안 함"과 동일하게 취급해 기존 title을 덮어쓰지 않는다. */
+    private String normalizeTitle(String title) {
+        if (title == null) {
+            return null;
+        }
+
+        String trimmed = title.trim();
+
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    @Override
+    @Transactional
+    public void unsaveCondition(Long userId, Long conditionId) {
+        UserConditionRow condition = requireOwnedCondition(userId, conditionId);
+
+        userConditionMapper.updateIsSaved(condition.getConditionId(), false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SavedConditionResponse> getSavedConditions(Long userId) {
+        return userConditionMapper.findSavedByUserId(userId).stream()
+                .map(this::toSavedConditionResponse)
+                .toList();
+    }
+
+    /**
+     * 저장된 조건의 추천 결과를 재계산 없이 그대로 반환한다. route/transportType/lineNum/
+     * vehicleType/walkMin/transitMin은 최초 생성 시점 응답에만 있고 DB에 저장되지 않아
+     * 여기서는 항상 null이다 - 다시 계산하려면 카카오 API를 재호출해야 하는데 이건 이
+     * 조회 API의 범위가 아니다.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<RecommendedDongResponse> getRecommendations(Long userId, Long conditionId) {
+        requireOwnedCondition(userId, conditionId);
+
+        List<RecommendationRow> rows = recommendationMapper.findByConditionId(conditionId);
+
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> adminDongIds = rows.stream().map(RecommendationRow::getAdminDongId).toList();
+        Map<Long, AdminDong> adminDongsById = adminDongMapper.findByIds(adminDongIds).stream()
+                .collect(Collectors.toMap(AdminDong::getAdminDongId, Function.identity()));
+
+        return rows.stream()
+                .map(row -> toSavedRecommendationResponse(row, adminDongsById.get(row.getAdminDongId())))
+                .toList();
+    }
+
+    private UserConditionRow requireOwnedCondition(Long userId, Long conditionId) {
+        UserConditionRow condition = userConditionMapper.findById(conditionId);
+
+        if (condition == null) {
+            throw new NotFoundException("존재하지 않는 조건입니다: " + conditionId);
+        }
+
+        if (!condition.getUserId().equals(userId)) {
+            throw new ForbiddenException("본인이 등록한 조건만 접근할 수 있습니다.");
+        }
+
+        return condition;
+    }
+
+    private SavedConditionResponse toSavedConditionResponse(UserConditionRow row) {
+        return SavedConditionResponse.builder()
+                .conditionId(row.getConditionId())
+                .title(row.getTitle())
+                .rentalType(reverseTranslateOrThrow(RENTAL_TYPE_LABELS, row.getRentalType()))
+                .destAddress(row.getDestAddress())
+                .commuteType(row.getCommuteType() == null
+                        ? null
+                        : reverseTranslateOrThrow(COMMUTE_TYPE_LABELS, row.getCommuteType()))
+                .maxCommuteTime(row.getMaxCommuteTime())
+                .maxTransferCount(row.getMaxTransferCount())
+                .minArea(row.getMinArea())
+                .maxDeposit(toManwon(row.getMaxDeposit()))
+                .maxRent(toManwonInt(row.getMaxRent()))
+                .createdAt(row.getCreatedAt())
+                .build();
+    }
+
+    private RecommendedDongResponse toSavedRecommendationResponse(RecommendationRow row, AdminDong adminDong) {
+        return RecommendedDongResponse.builder()
+                .adminDongId(row.getAdminDongId())
+                .guName(adminDong == null ? null : adminDong.getGuName())
+                .dongName(adminDong == null ? null : adminDong.getName())
+                .lat(adminDong == null ? null : adminDong.getLatitude())
+                .lng(adminDong == null ? null : adminDong.getLongitude())
+                .totalScore(row.getTotalScore())
+                .dataCoverageRate(row.getDataCoverageRate())
+                .rank(row.getRank())
+                .commuteTime(row.getCommuteTime())
+                .transferCount(row.getTransferCount())
+                .recommendationReason(row.getRecommendationReason())
+                .caution(row.getCaution())
+                .build();
+    }
+
+    private Long toManwon(Long won) {
+        return won == null ? null : won / MANWON_TO_WON;
+    }
+
+    private Integer toManwonInt(Long won) {
+        return won == null ? null : Math.toIntExact(won / MANWON_TO_WON);
+    }
+
+    private String reverseTranslateOrThrow(Map<String, String> labels, String koreanValue) {
+        String code = labels.get(koreanValue);
+
+        if (code == null) {
+            throw new IllegalStateException("알 수 없는 값입니다: " + koreanValue);
+        }
+
+        return code;
     }
 
     private UserConditionRow buildUserConditionRow(Long userId, UserConditionCreateRequest request) {
