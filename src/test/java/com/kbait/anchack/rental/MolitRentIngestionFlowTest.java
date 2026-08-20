@@ -118,10 +118,10 @@ class MolitRentIngestionFlowTest {
         server = MockRestServiceServer.bindTo(restTemplate).build();
 
         MolitRentApiProperties properties = new MolitRentApiProperties(
-                FAKE_SERVICE_KEY,
-                NUM_OF_ROWS,
-                1_000,
-                1_000
+            ENCODED_FAKE_SERVICE_KEY,
+            NUM_OF_ROWS,
+            1_000,
+            1_000
         );
         MolitRentApiClient apiClient = new MolitRentApiClient(
                 restTemplate,
