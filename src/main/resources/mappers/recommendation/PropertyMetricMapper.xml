@@ -5,11 +5,7 @@
 
 <mapper namespace="com.kbait.anchack.recommendation.mapper.PropertyMetricMapper">
 
-  <!--
-    property_metrics는 시계열로 계속 쌓이므로 (admin_dong_id, house_type)별 최신 행만
-    PK(property_metric_id)의 MAX값으로 선택한다. gu_crime_stats 최신값 선택과 동일한 이유로
-    created_at 대신 PK를 쓴다 - safety_metrics 참고.
-  -->
+  <!-- property_metrics 단일 스냅샷에서 요청 조건에 맞는 행을 직접 조회한다. -->
   <select
     id="findLatestByDongsRentalTypeAndHouseTypes"
     resultType="com.kbait.anchack.recommendation.dto.PropertyMetricCandidateRow"
@@ -21,23 +17,15 @@
       pm.avg_rent,
       pm.avg_area
     FROM property_metrics pm
-    JOIN (
-      SELECT admin_dong_id, house_type, MAX(property_metric_id) AS latest_property_metric_id
-      FROM property_metrics
-      WHERE admin_dong_id IN
-      <foreach collection="adminDongIds" item="adminDongId" open="(" separator="," close=")">
-        #{adminDongId}
-      </foreach>
-      AND rental_type = #{rentalType}
-      AND house_type IN
-      <foreach collection="houseTypes" item="houseType" open="(" separator="," close=")">
-        #{houseType}
-      </foreach>
-      GROUP BY admin_dong_id, house_type
-    ) latest
-      ON latest.admin_dong_id = pm.admin_dong_id
-      AND latest.house_type = pm.house_type
-      AND latest.latest_property_metric_id = pm.property_metric_id
+    WHERE pm.admin_dong_id IN
+    <foreach collection="adminDongIds" item="adminDongId" open="(" separator="," close=")">
+      #{adminDongId}
+    </foreach>
+    AND pm.rental_type = #{rentalType}
+    AND pm.house_type IN
+    <foreach collection="houseTypes" item="houseType" open="(" separator="," close=")">
+      #{houseType}
+    </foreach>
   </select>
 
 </mapper>
