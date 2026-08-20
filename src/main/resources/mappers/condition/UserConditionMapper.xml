@@ -17,4 +17,57 @@
     )
   </insert>
 
+  <select id="findById" resultType="com.kbait.anchack.condition.dto.UserConditionRow">
+    SELECT
+      condition_id AS conditionId,
+      user_id AS userId,
+      title,
+      rental_type AS rentalType,
+      dest_address AS destAddress,
+      commute_type AS commuteType,
+      max_commute_time AS maxCommuteTime,
+      max_transfer_count AS maxTransferCount,
+      min_area AS minArea,
+      max_deposit AS maxDeposit,
+      max_rent AS maxRent,
+      created_at AS createdAt
+    FROM user_conditions
+    WHERE condition_id = #{conditionId}
+  </select>
+
+  <select id="findSavedByUserId" resultType="com.kbait.anchack.condition.dto.UserConditionRow">
+    SELECT
+      condition_id AS conditionId,
+      user_id AS userId,
+      title,
+      rental_type AS rentalType,
+      dest_address AS destAddress,
+      commute_type AS commuteType,
+      max_commute_time AS maxCommuteTime,
+      max_transfer_count AS maxTransferCount,
+      min_area AS minArea,
+      max_deposit AS maxDeposit,
+      max_rent AS maxRent,
+      created_at AS createdAt
+    FROM user_conditions
+    WHERE user_id = #{userId}
+      AND is_saved = TRUE
+    ORDER BY created_at DESC
+  </select>
+
+  <update id="updateIsSaved">
+    UPDATE user_conditions
+    SET is_saved = #{isSaved}
+    WHERE condition_id = #{conditionId}
+  </update>
+
+  <update id="markSaved">
+    UPDATE user_conditions
+    SET is_saved = TRUE
+    <if test="title != null">
+      , title = #{title}
+    </if>
+    WHERE condition_id = #{conditionId}
+  </update>
+
 </mapper>
