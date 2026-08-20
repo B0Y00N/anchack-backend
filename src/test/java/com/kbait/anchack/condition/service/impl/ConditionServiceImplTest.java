@@ -203,14 +203,14 @@ class ConditionServiceImplTest {
     }
 
     @Test
-    void 저장된_조건_목록은_원_단위를_만원으로_환산하고_영문_코드로_되돌려_반환한다() {
+    void 저장된_조건_목록은_만원_단위를_그대로_돌려주고_영문_코드로_되돌려_반환한다() {
         UserConditionRow row = UserConditionRow.builder()
                 .conditionId(1L)
                 .title("")
                 .rentalType("월세")
                 .commuteType("대중교통")
-                .maxDeposit(30_000_000L)
-                .maxRent(700_000L)
+                .maxDeposit(3000L)
+                .maxRent(70L)
                 .minArea(new BigDecimal("20.00"))
                 .build();
         when(userConditionMapper.findSavedByUserId(10L)).thenReturn(List.of(row));

@@ -144,11 +144,18 @@ public class RecommendationServiceImpl implements RecommendationService {
      * recommendation_scores -> recommendations 순으로 삭제한다.
      * FK(recommendation_scores.recommendation_id)에 ON DELETE CASCADE가 없어서
      * 순서를 바꾸면 FK 제약 위반이 난다.
+     *
+     * rows가 비어있으면(하드필터를 통과한 후보가 하나도 없는 경우) insertBatch를 호출하지
+     * 않는다 - MyBatis <foreach>가 빈 리스트에 대해 "VALUES" 뒤에 아무것도 없는 SQL을
+     * 그대로 렌더링해 문법 오류가 나기 때문이다.
      */
     private void replaceRecommendations(Long conditionId, List<RecommendationRow> rows) {
         recommendationScoreMapper.deleteByConditionId(conditionId);
         recommendationMapper.deleteByConditionId(conditionId);
-        recommendationMapper.insertBatch(rows);
+
+        if (!rows.isEmpty()) {
+            recommendationMapper.insertBatch(rows);
+        }
     }
 
     private void replaceRecommendationScores(List<RecommendationRow> rows) {
@@ -156,7 +163,9 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .flatMap(row -> toScoreRows(row).stream())
                 .toList();
 
-        recommendationScoreMapper.insertBatch(scoreRows);
+        if (!scoreRows.isEmpty()) {
+            recommendationScoreMapper.insertBatch(scoreRows);
+        }
     }
 
     private List<RecommendationScoreRow> toScoreRows(RecommendationRow row) {
