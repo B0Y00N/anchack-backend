@@ -17,10 +17,8 @@ import java.util.regex.Pattern;
 
 public class JwtAuthenticationFilter implements Filter {
 
-    public static final String USER_ID_ATTRIBUTE =
-        "AUTH_USER_ID";
+    public static final String USER_ID_ATTRIBUTE = "AUTH_USER_ID";
 
-    // 메서드와 무관하게 공개되는 경로
     private static final List<String> WHITELIST =
         Arrays.asList(
             "/",
@@ -28,18 +26,13 @@ public class JwtAuthenticationFilter implements Filter {
             "/api/auth/kakao/callback"
         );
 
-    // GET으로만 공개되는 리뷰 상세 경로
     private static final Pattern REVIEW_DETAIL_PATH =
         Pattern.compile("^/api/reviews/\\d+$");
 
     private JwtTokenProvider jwtTokenProvider;
 
     @Override
-    public void init(
-        FilterConfig filterConfig
-    ) throws ServletException {
-
-        // Spring이 관리하는 JwtTokenProvider Bean을 가져온다.
+    public void init(FilterConfig filterConfig) throws ServletException {
         this.jwtTokenProvider =
             WebApplicationContextUtils
                 .getRequiredWebApplicationContext(
@@ -55,36 +48,24 @@ public class JwtAuthenticationFilter implements Filter {
         FilterChain chain
     ) throws IOException, ServletException {
 
-        HttpServletRequest request =
-            (HttpServletRequest) req;
+        HttpServletRequest request = (HttpServletRequest) req;
+        HttpServletResponse response = (HttpServletResponse) res;
 
-        HttpServletResponse response =
-            (HttpServletResponse) res;
-
-        // CORS 사전 요청은 JWT 인증 없이 통과시킨다.
-        // CORS 응답 헤더는 WebConfig의 CorsFilter가 처리한다.
-        if ("OPTIONS".equalsIgnoreCase(
-            request.getMethod()
-        )) {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             chain.doFilter(request, response);
             return;
         }
 
-        String requestPath =
-            getRequestPath(request);
+        String requestPath = getRequestPath(request);
 
-        // 공개 경로는 JWT 인증 없이 Controller로 전달한다.
         if (isWhitelisted(requestPath, request.getMethod())) {
             trySetOptionalAuthenticatedUser(request);
             chain.doFilter(request, response);
             return;
         }
 
-        String authorizationHeader =
-            request.getHeader("Authorization");
+        String authorizationHeader = request.getHeader("Authorization");
 
-        // Authorization 헤더가 없거나 Bearer 형식이 아니면
-        // 인증 실패 응답을 반환한다.
         if (authorizationHeader == null
             || !authorizationHeader.startsWith("Bearer ")) {
 
@@ -95,10 +76,7 @@ public class JwtAuthenticationFilter implements Filter {
             return;
         }
 
-        String token =
-            authorizationHeader
-                .substring(7)
-                .trim();
+        String token = authorizationHeader.substring(7).trim();
 
         if (token.isEmpty()) {
             sendUnauthorizedResponse(
@@ -111,7 +89,6 @@ public class JwtAuthenticationFilter implements Filter {
         Long userId;
 
         try {
-            // JWT가 유효한지 검사한다.
             if (!jwtTokenProvider.validateToken(token)) {
                 sendUnauthorizedResponse(
                     response,
@@ -120,9 +97,7 @@ public class JwtAuthenticationFilter implements Filter {
                 return;
             }
 
-            // JWT에서 사용자 PK를 가져온다.
-            userId =
-                jwtTokenProvider.getUserId(token);
+            userId = jwtTokenProvider.getUserId(token);
 
         } catch (Exception e) {
             sendUnauthorizedResponse(
@@ -132,20 +107,11 @@ public class JwtAuthenticationFilter implements Filter {
             return;
         }
 
-        // Controller에서 사용할 수 있도록
-        // 인증된 사용자 PK를 request에 저장한다.
-        request.setAttribute(
-            USER_ID_ATTRIBUTE,
-            userId
-        );
+        request.setAttribute(USER_ID_ATTRIBUTE, userId);
 
         chain.doFilter(request, response);
     }
 
-    /**
-     * 공개 조회 요청에 유효한 토큰이 있으면 선택적으로 사용자 ID를 설정한다.
-     * 토큰이 없거나 잘못된 경우에도 공개 조회 자체는 계속 진행한다.
-     */
     private void trySetOptionalAuthenticatedUser(
         HttpServletRequest request
     ) {
@@ -170,39 +136,28 @@ public class JwtAuthenticationFilter implements Filter {
                 );
             }
         } catch (Exception ignored) {
-            // 공개 API의 선택적 인증이므로 잘못된 토큰은 비로그인으로 처리한다.
+            // 공개 API이므로 잘못된 토큰은 비로그인 사용자로 처리한다.
         }
     }
 
-    // Context Path를 제외한 실제 요청 경로를 반환한다.
-    private String getRequestPath(
-        HttpServletRequest request
-    ) {
-
-        String requestUri =
-            request.getRequestURI();
-
-        String contextPath =
-            request.getContextPath();
+    private String getRequestPath(HttpServletRequest request) {
+        String requestUri = request.getRequestURI();
+        String contextPath = request.getContextPath();
 
         if (contextPath != null
             && !contextPath.isEmpty()
             && requestUri.startsWith(contextPath)) {
 
-            return requestUri.substring(
-                contextPath.length()
-            );
+            return requestUri.substring(contextPath.length());
         }
 
         return requestUri;
     }
 
-    // 요청 경로와 HTTP 메서드 조합으로 공개 여부를 확인한다.
     private boolean isWhitelisted(
         String requestPath,
         String method
     ) {
-
         if (WHITELIST.contains(requestPath)) {
             return true;
         }
@@ -211,36 +166,26 @@ public class JwtAuthenticationFilter implements Filter {
             return false;
         }
 
-        // 행정동 정적 경로 및 하위 조회 경로
         if (requestPath.equals("/api/admin-dongs")
             || requestPath.startsWith("/api/admin-dongs/")) {
             return true;
         }
 
-        // 리뷰 목록, 숫자 ID 상세 조회, 리뷰 카테고리 조회
         return requestPath.equals("/api/reviews")
             || REVIEW_DETAIL_PATH.matcher(requestPath).matches()
             || requestPath.equals("/api/review-categories");
     }
 
-    // JWT 인증 실패 응답을 반환한다.
     private void sendUnauthorizedResponse(
         HttpServletResponse response,
         String message
     ) throws IOException {
 
-        response.setStatus(
-            HttpServletResponse.SC_UNAUTHORIZED
-        );
-
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/json;charset=UTF-8");
 
-        response.setContentType(
-            "application/json;charset=UTF-8"
-        );
-
-        String escapedMessage =
-            message.replace("\"", "\\\"");
+        String escapedMessage = message.replace("\"", "\\\"");
 
         response.getWriter().write(
             "{\"message\":\""
