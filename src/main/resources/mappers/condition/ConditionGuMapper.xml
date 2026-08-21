@@ -13,4 +13,10 @@
     </foreach>
   </insert>
 
+  <select id="findGuCodesByConditionId" resultType="java.lang.String">
+    SELECT gu_code
+    FROM condition_gus
+    WHERE condition_id = #{conditionId}
+  </select>
+
 </mapper>

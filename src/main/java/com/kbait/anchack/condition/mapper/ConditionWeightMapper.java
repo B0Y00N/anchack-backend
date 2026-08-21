@@ -8,4 +8,6 @@ import java.util.List;
 public interface ConditionWeightMapper {
 
     int insertBatch(@Param("rows") List<ConditionWeightRow> rows);
+
+    List<ConditionWeightRow> findByConditionId(@Param("conditionId") Long conditionId);
 }

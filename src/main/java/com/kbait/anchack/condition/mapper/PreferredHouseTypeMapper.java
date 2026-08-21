@@ -8,4 +8,6 @@ import java.util.List;
 public interface PreferredHouseTypeMapper {
 
     int insertBatch(@Param("rows") List<PreferredHouseTypeRow> rows);
+
+    List<String> findHouseTypesByConditionId(@Param("conditionId") Long conditionId);
 }

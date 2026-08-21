@@ -13,4 +13,13 @@
     </foreach>
   </insert>
 
+  <select id="findByConditionId" resultType="com.kbait.anchack.condition.dto.ConditionWeightRow">
+    SELECT
+      condition_id AS conditionId,
+      category,
+      importance
+    FROM condition_weights
+    WHERE condition_id = #{conditionId}
+  </select>
+
 </mapper>
