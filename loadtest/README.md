@@ -40,6 +40,7 @@ SELECT DISTINCT house_type FROM property_metrics;
 | `k6/scenarios/00_smoke.js` | 정합성 확인 (VU 1, 1회) — 본격 부하 전 반드시 먼저 통과시킬 것 | `k6 run -e JWT_SECRET=<값> loadtest/k6/scenarios/00_smoke.js` |
 | `k6/scenarios/01_write_heavy.js` | 핵심 쓰기 경로: create+recompute를 VU 0→50까지 램핑. `DEST_ADDRESS_RATIO`로 destAddress 섞는 비율 조절(기본 0) | `k6 run -e JWT_SECRET=<값> -e DEST_ADDRESS_RATIO=0.2 loadtest/k6/scenarios/01_write_heavy.js` |
 | `k6/scenarios/02_read_baseline.js` | 읽기 경로 대조군: 저장된 결과 복원(`GET /recommendations`)과 `GET /saved`만 VU 0→100 램핑 | `k6 run -e JWT_SECRET=<값> loadtest/k6/scenarios/02_read_baseline.js` |
+| `k6/scenarios/03_mixed.js` | 혼합: 읽기 70% / 생성 20% / 재계산 10% 비율로 VU 0→30 램핑 (실제 트래픽 패턴에 가까운 그림). `READ_RATIO`/`CREATE_RATIO`로 비율 조절 가능 | `k6 run -e JWT_SECRET=<값> loadtest/k6/scenarios/03_mixed.js` |
 
 `JWT_SECRET`은 `.env`의 `JWT_SECRET`과 반드시 동일한 값이어야 한다(HS256 서명 검증). `BASE_URL`은 기본 `http://localhost:8080`.
 
@@ -51,7 +52,6 @@ k6 run -e JWT_SECRET="$JWT_SECRET" loadtest/k6/scenarios/00_smoke.js
 
 ## 2. 다음에 추가할 시나리오
 
-- **혼합**: 01/02를 하나의 k6 파일에서 `scenarios`로 동시 실행(예: 읽기 70% / 생성 20% / 재계산 10%)
 - **브레이크포인트**: `01_write_heavy`의 `stages`를 에러율/레이턴시 임계값 넘을 때까지 계속 올리는 형태로 변형 (`executor: ramping-vus` + 높은 target으로 확장)
 - **소크**: `constant-vus` executor로 VU 10~20을 30~60분 유지. 이 경우 `mintToken`이 setup()에서 한 번만 발급되는 `02_read_baseline.js` 패턴을 쓰면 안 됨 — 기본 JWT 만료(1시간)를 넘길 수 있으니 매 iteration마다 새로 발급하거나 `JWT_EXPIRATION_MS`를 늘려서 재빌드해야 함
 
