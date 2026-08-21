@@ -17,13 +17,15 @@
   <insert id="insertBatch" useGeneratedKeys="true" keyProperty="rows.recommendationId">
     INSERT INTO recommendations (
       condition_id, admin_dong_id, total_score, data_coverage_rate,
-      commute_time, transfer_count, `rank`, recommendation_reason, caution
+      commute_time, transfer_count, route, transport_type, line_num, vehicle_type, walk_min, transit_min,
+      `rank`, recommendation_reason, caution
     )
     VALUES
     <foreach collection="rows" item="row" separator=",">
       (
         #{row.conditionId}, #{row.adminDongId}, #{row.totalScore}, #{row.dataCoverageRate},
-        #{row.commuteTime}, #{row.transferCount}, #{row.rank}, #{row.recommendationReason}, #{row.caution}
+        #{row.commuteTime}, #{row.transferCount}, #{row.route}, #{row.transportType}, #{row.lineNum},
+        #{row.vehicleType}, #{row.walkMin}, #{row.transitMin}, #{row.rank}, #{row.recommendationReason}, #{row.caution}
       )
     </foreach>
   </insert>
@@ -37,6 +39,12 @@
       data_coverage_rate AS dataCoverageRate,
       commute_time AS commuteTime,
       transfer_count AS transferCount,
+      route,
+      transport_type AS transportType,
+      line_num AS lineNum,
+      vehicle_type AS vehicleType,
+      walk_min AS walkMin,
+      transit_min AS transitMin,
       `rank`,
       recommendation_reason AS recommendationReason,
       caution
