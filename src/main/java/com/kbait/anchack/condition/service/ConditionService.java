@@ -11,6 +11,8 @@ public interface ConditionService {
 
     UserConditionCreateResponse createAndRecommend(Long userId, UserConditionCreateRequest request);
 
+    UserConditionCreateResponse recompute(Long userId, Long conditionId);
+
     void saveCondition(Long userId, Long conditionId, String title);
 
     void unsaveCondition(Long userId, Long conditionId);
