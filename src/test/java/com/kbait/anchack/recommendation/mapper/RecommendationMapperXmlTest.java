@@ -18,11 +18,12 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * RecommendationRow에는 guName/dongName/latitude/longitude, route/transportType/lineNum/
- * vehicleType/walkMin/transitMin처럼 응답 조립 전용(non-persisted) 필드가 섞여 있다.
- * insertBatch가 컬럼을 명시적으로 나열하지 않고 자동 매핑으로 바뀌면 이 필드들이 그대로
- * INSERT 파라미터에 섞여 들어가 컬럼 수 불일치로 터지므로, 바인딩되는 파라미터가 실제
- * recommendations 테이블 컬럼에 대응하는 속성으로만 한정되는지 고정한다.
+ * RecommendationRow에는 guName/dongName/latitude/longitude처럼 응답 조립 전용
+ * (non-persisted) 필드가 섞여 있다(route/transportType/lineNum/vehicleType/walkMin/
+ * transitMin은 V8부터 recommendations 컬럼으로 실제 저장된다). insertBatch가 컬럼을
+ * 명시적으로 나열하지 않고 자동 매핑으로 바뀌면 guName 등도 그대로 INSERT 파라미터에
+ * 섞여 들어가 컬럼 수 불일치로 터지므로, 바인딩되는 파라미터가 실제 recommendations
+ * 테이블 컬럼에 대응하는 속성으로만 한정되는지 고정한다.
  */
 class RecommendationMapperXmlTest {
 
@@ -64,6 +65,12 @@ class RecommendationMapperXmlTest {
                 .contains("data_coverage_rate")
                 .contains("commute_time")
                 .contains("transfer_count")
+                .contains("route")
+                .contains("transport_type")
+                .contains("line_num")
+                .contains("vehicle_type")
+                .contains("walk_min")
+                .contains("transit_min")
                 .contains("recommendation_reason")
                 .contains("caution");
     }
@@ -83,6 +90,12 @@ class RecommendationMapperXmlTest {
                         "__frch_row_0.dataCoverageRate",
                         "__frch_row_0.commuteTime",
                         "__frch_row_0.transferCount",
+                        "__frch_row_0.route",
+                        "__frch_row_0.transportType",
+                        "__frch_row_0.lineNum",
+                        "__frch_row_0.vehicleType",
+                        "__frch_row_0.walkMin",
+                        "__frch_row_0.transitMin",
                         "__frch_row_0.rank",
                         "__frch_row_0.recommendationReason",
                         "__frch_row_0.caution"
@@ -105,8 +118,9 @@ class RecommendationMapperXmlTest {
         return Map.of("rows", List.of(createRow()));
     }
 
-    /** guName/dongName/latitude/longitude/route/transportType/lineNum/vehicleType/walkMin/transitMin까지
-     * 전부 채운 행을 만들어, 이 필드들이 있어도 바인딩 파라미터 목록에 섞이지 않는지 확인한다. */
+    /** guName/dongName/latitude/longitude까지 전부 채운 행을 만들어, 이 필드들이 있어도
+     * 바인딩 파라미터 목록에 섞이지 않는지 확인한다(route 등은 실제로 저장되므로 반대로
+     * 바인딩 목록에 포함되는지를 위 테스트에서 확인한다). */
     private RecommendationRow createRow() {
         return RecommendationRow.builder()
                 .conditionId(1L)
