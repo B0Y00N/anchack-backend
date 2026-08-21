@@ -21,4 +21,8 @@ public class SavedConditionResponse {
     private Long maxDeposit;
     private Integer maxRent;
     private LocalDateTime createdAt;
+
+    /** 조건 생성 이후 관련 데이터(admin_dong 지표 등)가 갱신돼 결과가 최신이 아닐 수
+     * 있는지 여부. */
+    private Boolean latest;
 }

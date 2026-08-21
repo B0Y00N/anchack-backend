@@ -37,4 +37,8 @@ public class UserConditionRow {
     private Long maxDeposit;
     private Long maxRent;
     private LocalDateTime createdAt;
+
+    /** is_latest 컬럼. INSERT 시점엔 쓰지 않고(컬럼 기본값 TRUE 그대로 사용) createdAt과
+     * 동일하게 조회 전용이다. */
+    private Boolean latest;
 }
