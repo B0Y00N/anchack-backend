@@ -8,12 +8,14 @@ import com.kbait.anchack.condition.dto.ConditionWeightRow;
 import com.kbait.anchack.condition.dto.RecommendedDongResponse;
 import com.kbait.anchack.condition.dto.SavedConditionResponse;
 import com.kbait.anchack.condition.dto.UserConditionCreateRequest;
+import com.kbait.anchack.condition.dto.UserConditionCreateResponse;
 import com.kbait.anchack.condition.dto.UserConditionRow;
 import com.kbait.anchack.condition.mapper.ConditionEssentialMapper;
 import com.kbait.anchack.condition.mapper.ConditionGuMapper;
 import com.kbait.anchack.condition.mapper.ConditionWeightMapper;
 import com.kbait.anchack.condition.mapper.PreferredHouseTypeMapper;
 import com.kbait.anchack.condition.mapper.UserConditionMapper;
+import com.kbait.anchack.recommendation.dto.ConditionBundle;
 import com.kbait.anchack.recommendation.dto.RecommendationRow;
 import com.kbait.anchack.recommendation.mapper.RecommendationMapper;
 import com.kbait.anchack.recommendation.service.RecommendationService;
@@ -132,6 +134,80 @@ class ConditionServiceImplTest {
     }
 
     @Test
+    void 존재하지_않는_조건을_재계산하면_예외가_발생하고_추천을_호출하지_않는다() {
+        when(userConditionMapper.findById(1L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.recompute(10L, 1L))
+                .isInstanceOf(NotFoundException.class);
+
+        verifyNoInteractions(recommendationService);
+        verify(userConditionMapper, never()).markLatest(any());
+    }
+
+    @Test
+    void 다른_사용자의_조건을_재계산하면_예외가_발생한다() {
+        UserConditionRow condition = UserConditionRow.builder().conditionId(1L).userId(999L).build();
+        when(userConditionMapper.findById(1L)).thenReturn(condition);
+
+        assertThatThrownBy(() -> service.recompute(10L, 1L))
+                .isInstanceOf(ForbiddenException.class);
+
+        verifyNoInteractions(recommendationService);
+        verify(userConditionMapper, never()).markLatest(any());
+    }
+
+    @Test
+    void 재계산은_저장된_하위테이블을_그대로_읽어_번들을_구성하고_recommendations를_반환한다() {
+        UserConditionRow condition = UserConditionRow.builder()
+                .conditionId(1L)
+                .userId(10L)
+                .rentalType("월세")
+                .destAddress("서울 영등포구 여의대로 128")
+                .commuteType("대중교통")
+                .maxCommuteTime(60)
+                .maxTransferCount(2)
+                .maxDeposit(3000L)
+                .maxRent(70L)
+                .minArea(new BigDecimal("20.00"))
+                .build();
+        when(userConditionMapper.findById(1L)).thenReturn(condition);
+        when(conditionWeightMapper.findByConditionId(1L)).thenReturn(List.of(
+                ConditionWeightRow.builder().category("SAFETY").importance(new BigDecimal("2")).build()));
+        when(conditionGuMapper.findGuCodesByConditionId(1L)).thenReturn(List.of("11120"));
+        when(conditionEssentialMapper.findCategoriesByConditionId(1L)).thenReturn(List.of("편의점"));
+        when(preferredHouseTypeMapper.findHouseTypesByConditionId(1L)).thenReturn(List.of("원룸"));
+
+        RecommendationRow recommendationRow = RecommendationRow.builder()
+                .adminDongId(5L)
+                .totalScore(new BigDecimal("70.00"))
+                .dataCoverageRate(new BigDecimal("100.00"))
+                .rank(1)
+                .recommendationReason("reason")
+                .caution("caution")
+                .build();
+        ArgumentCaptor<ConditionBundle> bundleCaptor = ArgumentCaptor.forClass(ConditionBundle.class);
+        when(recommendationService.generate(bundleCaptor.capture())).thenReturn(List.of(recommendationRow));
+
+        UserConditionCreateResponse response = service.recompute(10L, 1L);
+
+        assertThat(response.getConditionId()).isEqualTo(1L);
+        assertThat(response.getRecommendations()).hasSize(1);
+
+        ConditionBundle bundle = bundleCaptor.getValue();
+        assertThat(bundle.getConditionId()).isEqualTo(1L);
+        assertThat(bundle.getRentalType()).isEqualTo("월세");
+        assertThat(bundle.getDestAddress()).isEqualTo("서울 영등포구 여의대로 128");
+        assertThat(bundle.getCommuteType()).isEqualTo("대중교통");
+        assertThat(bundle.getGuCodes()).containsExactly("11120");
+        assertThat(bundle.getEssentialCategories()).containsExactly("편의점");
+        assertThat(bundle.getPreferredHouseTypes()).containsExactly("원룸");
+        assertThat(bundle.getMaxDeposit()).isEqualTo(3000L);
+        assertThat(bundle.getMaxRent()).isEqualTo(70);
+        assertThat(bundle.getCategoryWeights()).containsEntry("SAFETY", new BigDecimal("2"));
+        verify(userConditionMapper).markLatest(1L);
+    }
+
+    @Test
     void 존재하지_않는_조건을_저장하면_예외가_발생한다() {
         when(userConditionMapper.findById(1L)).thenReturn(null);
 
@@ -212,6 +288,7 @@ class ConditionServiceImplTest {
                 .maxDeposit(3000L)
                 .maxRent(70L)
                 .minArea(new BigDecimal("20.00"))
+                .latest(false)
                 .build();
         when(userConditionMapper.findSavedByUserId(10L)).thenReturn(List.of(row));
 
@@ -223,6 +300,7 @@ class ConditionServiceImplTest {
         assertThat(response.getCommuteType()).isEqualTo("PUBLIC_TRANSIT");
         assertThat(response.getMaxDeposit()).isEqualTo(3000L);
         assertThat(response.getMaxRent()).isEqualTo(70);
+        assertThat(response.getLatest()).isFalse();
     }
 
     @Test
@@ -236,7 +314,7 @@ class ConditionServiceImplTest {
     }
 
     @Test
-    void 결과_조회는_admin_dong_정보를_채워서_반환하고_통근_상세_필드는_null이다() {
+    void 결과_조회는_admin_dong_정보와_저장된_통근_상세를_함께_채워서_반환한다() {
         UserConditionRow condition = UserConditionRow.builder().conditionId(1L).userId(10L).build();
         when(userConditionMapper.findById(1L)).thenReturn(condition);
 
@@ -247,6 +325,12 @@ class ConditionServiceImplTest {
                 .rank(1)
                 .commuteTime(20)
                 .transferCount(0)
+                .route("6호선 증산 → 디지털미디어시티")
+                .transportType("SUBWAY")
+                .lineNum("6호선")
+                .vehicleType("일반")
+                .walkMin(5)
+                .transitMin(15)
                 .recommendationReason("reason")
                 .caution("caution")
                 .build();
@@ -264,6 +348,34 @@ class ConditionServiceImplTest {
         RecommendedDongResponse response = result.get(0);
         assertThat(response.getGuName()).isEqualTo("은평구");
         assertThat(response.getDongName()).isEqualTo("증산동");
+        assertThat(response.getRoute()).isEqualTo("6호선 증산 → 디지털미디어시티");
+        assertThat(response.getTransportType()).isEqualTo("SUBWAY");
+        assertThat(response.getLineNum()).isEqualTo("6호선");
+        assertThat(response.getVehicleType()).isEqualTo("일반");
+        assertThat(response.getWalkMin()).isEqualTo(5);
+        assertThat(response.getTransitMin()).isEqualTo(15);
+    }
+
+    @Test
+    void 결과_조회는_destAddress_없이_생성된_조건이면_통근_상세가_null인_채로_반환한다() {
+        UserConditionRow condition = UserConditionRow.builder().conditionId(1L).userId(10L).build();
+        when(userConditionMapper.findById(1L)).thenReturn(condition);
+
+        RecommendationRow recommendationRow = RecommendationRow.builder()
+                .adminDongId(5L)
+                .totalScore(new BigDecimal("70.00"))
+                .dataCoverageRate(new BigDecimal("100.00"))
+                .rank(1)
+                .recommendationReason("reason")
+                .caution("caution")
+                .build();
+        when(recommendationMapper.findByConditionId(1L)).thenReturn(List.of(recommendationRow));
+        when(adminDongMapper.findByIds(List.of(5L))).thenReturn(List.of());
+
+        List<RecommendedDongResponse> result = service.getRecommendations(10L, 1L);
+
+        assertThat(result).hasSize(1);
+        RecommendedDongResponse response = result.get(0);
         assertThat(response.getRoute()).isNull();
         assertThat(response.getTransitMin()).isNull();
     }

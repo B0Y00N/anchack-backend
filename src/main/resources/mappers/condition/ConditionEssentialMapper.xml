@@ -13,4 +13,10 @@
     </foreach>
   </insert>
 
+  <select id="findCategoriesByConditionId" resultType="java.lang.String">
+    SELECT category
+    FROM condition_essentials
+    WHERE condition_id = #{conditionId}
+  </select>
+
 </mapper>

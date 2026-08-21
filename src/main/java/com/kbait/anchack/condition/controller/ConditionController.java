@@ -117,6 +117,23 @@ public class ConditionController {
         return ResponseEntity.ok(ApiResponse.success(conditionService.getRecommendations(userId, conditionId)));
     }
 
+    /**
+     * 저장된 조건의 파라미터를 그대로 다시 계산한다(재요청 시점 기준 최신 지표/카카오
+     * 경로로 새로 계산 - 통근 상세도 이번엔 다시 채워진다). 재계산 결과가 기존
+     * recommendations를 그대로 덮어쓴다.
+     *
+     * POST /api/user-conditions/1/recompute
+     */
+    @PostMapping("/{conditionId}/recompute")
+    public ResponseEntity<ApiResponse<UserConditionCreateResponse>> recompute(
+            HttpServletRequest httpRequest,
+            @PathVariable Long conditionId
+    ) {
+        Long userId = AuthenticatedUserResolver.requireUserId(httpRequest);
+
+        return ResponseEntity.ok(ApiResponse.success(conditionService.recompute(userId, conditionId)));
+    }
+
     /** JWT 필터가 request attribute에 저장한 사용자 ID를 조회한다. */
     private Long resolveUserId(HttpServletRequest request) {
         Object attribute = request.getAttribute(JwtAuthenticationFilter.USER_ID_ATTRIBUTE);

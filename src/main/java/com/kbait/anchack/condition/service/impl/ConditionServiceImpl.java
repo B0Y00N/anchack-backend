@@ -116,6 +116,49 @@ public class ConditionServiceImpl implements ConditionService {
         return toResponse(conditionId, recommendations);
     }
 
+    /**
+     * 이미 저장된 조건의 파라미터(하위 테이블 포함)를 그대로 다시 읽어 추천을 재계산한다.
+     * user_conditions/condition_weights/condition_essentials/preferred_house_types/
+     * condition_gus에 이미 DB 네이티브 형식(한글 ENUM, 만원 단위 등)으로 저장돼 있어
+     * createAndRecommend와 달리 프론트 영문 코드 변환이 필요 없다. RecommendationService.
+     * generate()가 conditionId 기준으로 기존 recommendations를 DELETE 후 다시 INSERT하는
+     * 방식이라 신규 생성과 동일한 경로로 재계산 결과를 그대로 덮어쓸 수 있다. 재계산이
+     * 끝나면 is_latest를 TRUE로 되돌린다(FALSE로 바꾸는 로직은 아직 없다 - 추후 작업).
+     */
+    @Override
+    @Transactional
+    public UserConditionCreateResponse recompute(Long userId, Long conditionId) {
+        UserConditionRow condition = requireOwnedCondition(userId, conditionId);
+
+        ConditionBundle bundle = toConditionBundleFromStoredCondition(condition);
+        List<RecommendationRow> recommendations = recommendationService.generate(bundle);
+        userConditionMapper.markLatest(conditionId);
+
+        return toResponse(conditionId, recommendations);
+    }
+
+    private ConditionBundle toConditionBundleFromStoredCondition(UserConditionRow condition) {
+        Long conditionId = condition.getConditionId();
+        Map<String, BigDecimal> categoryWeights = conditionWeightMapper.findByConditionId(conditionId).stream()
+                .collect(Collectors.toMap(ConditionWeightRow::getCategory, ConditionWeightRow::getImportance));
+
+        return ConditionBundle.builder()
+                .conditionId(conditionId)
+                .rentalType(condition.getRentalType())
+                .guCodes(conditionGuMapper.findGuCodesByConditionId(conditionId))
+                .essentialCategories(conditionEssentialMapper.findCategoriesByConditionId(conditionId))
+                .preferredHouseTypes(preferredHouseTypeMapper.findHouseTypesByConditionId(conditionId))
+                .maxDeposit(condition.getMaxDeposit())
+                .maxRent(condition.getMaxRent() == null ? null : Math.toIntExact(condition.getMaxRent()))
+                .minArea(condition.getMinArea())
+                .destAddress(condition.getDestAddress())
+                .commuteType(condition.getCommuteType())
+                .maxCommuteTime(condition.getMaxCommuteTime())
+                .maxTransferCount(condition.getMaxTransferCount())
+                .categoryWeights(categoryWeights)
+                .build();
+    }
+
     @Override
     @Transactional
     public void saveCondition(Long userId, Long conditionId, String title) {
@@ -153,9 +196,9 @@ public class ConditionServiceImpl implements ConditionService {
 
     /**
      * 저장된 조건의 추천 결과를 재계산 없이 그대로 반환한다. route/transportType/lineNum/
-     * vehicleType/walkMin/transitMin은 최초 생성 시점 응답에만 있고 DB에 저장되지 않아
-     * 여기서는 항상 null이다 - 다시 계산하려면 카카오 API를 재호출해야 하는데 이건 이
-     * 조회 API의 범위가 아니다.
+     * vehicleType/walkMin/transitMin도 최초 생성 시점에 recommendations에 함께 저장돼(V8)
+     * 있는 값을 그대로 돌려준다 - destAddress 없이 생성된 조건이면 애초에 null이었던
+     * 값이라 여기서도 null이다.
      */
     @Override
     @Transactional(readOnly = true)
@@ -206,6 +249,7 @@ public class ConditionServiceImpl implements ConditionService {
                 .maxDeposit(row.getMaxDeposit())
                 .maxRent(row.getMaxRent() == null ? null : Math.toIntExact(row.getMaxRent()))
                 .createdAt(row.getCreatedAt())
+                .latest(row.getLatest())
                 .build();
     }
 
@@ -221,6 +265,12 @@ public class ConditionServiceImpl implements ConditionService {
                 .rank(row.getRank())
                 .commuteTime(row.getCommuteTime())
                 .transferCount(row.getTransferCount())
+                .route(row.getRoute())
+                .transportType(row.getTransportType())
+                .lineNum(row.getLineNum())
+                .vehicleType(row.getVehicleType())
+                .walkMin(row.getWalkMin())
+                .transitMin(row.getTransitMin())
                 .recommendationReason(row.getRecommendationReason())
                 .caution(row.getCaution())
                 .build();

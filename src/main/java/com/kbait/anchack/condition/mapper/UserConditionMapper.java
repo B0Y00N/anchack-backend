@@ -32,4 +32,9 @@ public interface UserConditionMapper {
         @Param("conditionId") Long conditionId,
         @Param("title") String title
     );
+
+    /** 재계산 시 is_latest를 TRUE로 되돌린다. */
+    int markLatest(
+        @Param("conditionId") Long conditionId
+    );
 }

@@ -13,4 +13,10 @@
     </foreach>
   </insert>
 
+  <select id="findHouseTypesByConditionId" resultType="java.lang.String">
+    SELECT house_type
+    FROM preferred_house_types
+    WHERE condition_id = #{conditionId}
+  </select>
+
 </mapper>

@@ -34,8 +34,9 @@ public class RecommendationRow {
     private String caution;
 
     /**
-     * 통근 상세 표시용 정보. commuteTime/transferCount와 달리 recommendations 테이블
-     * 컬럼이 아니라 응답 조립 전용이라 insertBatch의 INSERT 문에는 참조되지 않는다.
+     * 통근 상세. commuteTime/transferCount와 동일하게 recommendations 테이블에 그대로
+     * 저장된다(V8) - 저장된 조건의 결과를 나중에 다시 조회할 때(GET /api/user-conditions/
+     * {conditionId}/recommendations) 카카오 API 재호출 없이 복원하기 위함이다.
      */
     private String route;
     private String transportType;

@@ -8,4 +8,6 @@ import java.util.List;
 public interface ConditionEssentialMapper {
 
     int insertBatch(@Param("rows") List<ConditionEssentialRow> rows);
+
+    List<String> findCategoriesByConditionId(@Param("conditionId") Long conditionId);
 }

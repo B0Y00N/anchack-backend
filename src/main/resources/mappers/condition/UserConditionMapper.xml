@@ -30,7 +30,8 @@
       min_area AS minArea,
       max_deposit AS maxDeposit,
       max_rent AS maxRent,
-      created_at AS createdAt
+      created_at AS createdAt,
+      is_latest AS latest
     FROM user_conditions
     WHERE condition_id = #{conditionId}
   </select>
@@ -48,7 +49,8 @@
       min_area AS minArea,
       max_deposit AS maxDeposit,
       max_rent AS maxRent,
-      created_at AS createdAt
+      created_at AS createdAt,
+      is_latest AS latest
     FROM user_conditions
     WHERE user_id = #{userId}
       AND is_saved = TRUE
@@ -67,6 +69,12 @@
     <if test="title != null">
       , title = #{title}
     </if>
+    WHERE condition_id = #{conditionId}
+  </update>
+
+  <update id="markLatest">
+    UPDATE user_conditions
+    SET is_latest = TRUE
     WHERE condition_id = #{conditionId}
   </update>
 
