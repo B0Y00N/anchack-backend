@@ -6,7 +6,6 @@ import com.kbait.anchack.route.dto.CommuteResult;
 import com.kbait.anchack.route.dto.Coordinates;
 import com.kbait.anchack.route.service.RouteService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
@@ -15,8 +14,10 @@ import java.math.BigDecimal;
  * "자가용"은 아직 미구현(공급자/방식 미정) - destAddress가 없는 조건에서는 호출되지
  * 않으므로(recommendation.service.CommuteFilter 참고) 자가용 조건이 아니면 앱 부팅에는
  * 영향 없다.
+ *
+ * route.mode 프로퍼티(기본 kakao)로 이 구현과 StubRouteService를 전환한다
+ * (RouteConfig 참고) - 컴포넌트 스캔이 아니라 @Bean으로 등록하므로 @Service는 없다.
  */
-@Service
 @RequiredArgsConstructor
 public class RouteServiceImpl implements RouteService {
 
