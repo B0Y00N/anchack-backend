@@ -118,11 +118,24 @@ services:
       # 원격/공유 환경에 그대로 쓰면 안 됨.
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      # 패널/대시보드를 PNG로 내보내려면(Export as image) 렌더러가 필요한데, Grafana
+      # 프로세스 안에 직접 설치하는 대신(무거운 헤드리스 Chromium 포함, 불안정) 공식
+      # 권장대로 별도 컨테이너(grafana-renderer)를 붙여서 HTTP로 위임한다.
+      GF_RENDERING_SERVER_URL: http://grafana-renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://grafana:3000/
+      GF_RENDERING_RENDERER_TOKEN: ${GRAFANA_RENDERER_TOKEN}
     volumes:
       - ./loadtest/monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+      - grafana-renderer
+
+  grafana-renderer:
+    image: grafana/grafana-image-renderer:latest
+    profiles: ["monitoring"]
+    environment:
+      AUTH_TOKEN: ${GRAFANA_RENDERER_TOKEN}
 
 volumes:
   mysql_data:
