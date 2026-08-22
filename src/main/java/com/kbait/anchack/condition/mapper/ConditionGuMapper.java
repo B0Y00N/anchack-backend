@@ -10,4 +10,6 @@ public interface ConditionGuMapper {
     int insertBatch(@Param("rows") List<ConditionGuRow> rows);
 
     List<String> findGuCodesByConditionId(@Param("conditionId") Long conditionId);
+
+    int deleteByConditionId(@Param("conditionId") Long conditionId);
 }

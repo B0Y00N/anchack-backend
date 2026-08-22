@@ -10,4 +10,6 @@ public interface ConditionWeightMapper {
     int insertBatch(@Param("rows") List<ConditionWeightRow> rows);
 
     List<ConditionWeightRow> findByConditionId(@Param("conditionId") Long conditionId);
+
+    int deleteByConditionId(@Param("conditionId") Long conditionId);
 }

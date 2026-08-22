@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -56,12 +58,11 @@ class UserConditionWriterTest {
                 conditionEssentialMapper,
                 preferredHouseTypeMapper,
                 conditionGuMapper);
-
-        mockGeneratedConditionId();
     }
 
     @Test
     void user_condition을_저장하고_생성된_conditionId를_반환한다() {
+        mockGeneratedConditionId();
         UserConditionRow userCondition = UserConditionRow.builder().userId(10L).build();
 
         Long conditionId = writer.insert(
@@ -72,6 +73,7 @@ class UserConditionWriterTest {
 
     @Test
     void categoryWeights를_condition_weights_행으로_변환해_저장한다() {
+        mockGeneratedConditionId();
         UserConditionRow userCondition = UserConditionRow.builder().userId(10L).build();
         ArgumentCaptor<List<ConditionWeightRow>> captor = weightRowsCaptor();
 
@@ -88,6 +90,7 @@ class UserConditionWriterTest {
 
     @Test
     void essentialCategories가_비어있으면_condition_essentials_insert를_호출하지_않는다() {
+        mockGeneratedConditionId();
         UserConditionRow userCondition = UserConditionRow.builder().userId(10L).build();
 
         writer.insert(userCondition, Map.of(), List.of(), List.of(), List.of());
@@ -97,6 +100,7 @@ class UserConditionWriterTest {
 
     @Test
     void essentialCategories가_있으면_conditionId를_채워_저장한다() {
+        mockGeneratedConditionId();
         UserConditionRow userCondition = UserConditionRow.builder().userId(10L).build();
         ArgumentCaptor<List<ConditionEssentialRow>> captor = essentialRowsCaptor();
 
@@ -110,6 +114,7 @@ class UserConditionWriterTest {
 
     @Test
     void houseTypes가_비어있으면_preferred_house_types_insert를_호출하지_않는다() {
+        mockGeneratedConditionId();
         UserConditionRow userCondition = UserConditionRow.builder().userId(10L).build();
 
         writer.insert(userCondition, Map.of(), List.of(), List.of(), List.of());
@@ -119,6 +124,7 @@ class UserConditionWriterTest {
 
     @Test
     void houseTypes가_있으면_conditionId를_채워_저장한다() {
+        mockGeneratedConditionId();
         UserConditionRow userCondition = UserConditionRow.builder().userId(10L).build();
         ArgumentCaptor<List<PreferredHouseTypeRow>> captor = houseTypeRowsCaptor();
 
@@ -132,6 +138,7 @@ class UserConditionWriterTest {
 
     @Test
     void guCodes가_없으면_condition_gus_insert를_호출하지_않는다() {
+        mockGeneratedConditionId();
         UserConditionRow userCondition = UserConditionRow.builder().userId(10L).build();
 
         writer.insert(userCondition, Map.of(), List.of(), List.of(), null);
@@ -141,6 +148,7 @@ class UserConditionWriterTest {
 
     @Test
     void guCodes가_있으면_conditionId를_채워_저장한다() {
+        mockGeneratedConditionId();
         UserConditionRow userCondition = UserConditionRow.builder().userId(10L).build();
         ArgumentCaptor<List<ConditionGuRow>> captor = guRowsCaptor();
 
@@ -150,6 +158,20 @@ class UserConditionWriterTest {
         assertThat(captor.getValue())
                 .extracting(ConditionGuRow::getConditionId, ConditionGuRow::getGuCode)
                 .containsExactly(tuple(1L, "11010"));
+    }
+
+    @Test
+    void delete는_FK_제약때문에_하위테이블부터_지우고_user_conditions를_마지막에_지운다() {
+        writer.delete(1L);
+
+        InOrder inOrder = inOrder(
+                conditionWeightMapper, conditionEssentialMapper, preferredHouseTypeMapper,
+                conditionGuMapper, userConditionMapper);
+        inOrder.verify(conditionWeightMapper).deleteByConditionId(1L);
+        inOrder.verify(conditionEssentialMapper).deleteByConditionId(1L);
+        inOrder.verify(preferredHouseTypeMapper).deleteByConditionId(1L);
+        inOrder.verify(conditionGuMapper).deleteByConditionId(1L);
+        inOrder.verify(userConditionMapper).deleteByConditionId(1L);
     }
 
     private void mockGeneratedConditionId() {

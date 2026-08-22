@@ -20,9 +20,10 @@ import java.util.Map;
 
 /**
  * user_conditions + 하위 테이블(condition_weights/condition_essentials/
- * preferred_house_types/condition_gus) 저장을 하나의 트랜잭션으로 묶는다.
+ * preferred_house_types/condition_gus) 저장(insert)과 삭제(delete)를 각각 하나의
+ * 트랜잭션으로 묶는다.
  *
- * ConditionServiceImpl.createAndRecommend()가 원래 이 로직을 직접 갖고 있었는데,
+ * ConditionServiceImpl.createAndRecommend()가 원래 저장 로직을 직접 갖고 있었는데,
  * 이어서 실행하는 하드필터/스코어링/reason 생성(카카오·OpenAI 외부 호출 포함)과 트랜잭션이
  * 분리돼야 해서 별도 빈으로 뺐다 - 같은 클래스 안에서 this.insert(...)로 호출하면
  * @Transactional이 프록시를 거치지 않아 적용되지 않기 때문이다(self-invocation).
@@ -61,6 +62,22 @@ public class UserConditionWriter {
         insertGus(conditionId, guCodes);
 
         return conditionId;
+    }
+
+    /**
+     * insert()가 만든 user_conditions + 하위 테이블을 통째로 지운다. 하드필터/스코어링/
+     * reason 생성이나 recommendations 반영이 끝내 실패했을 때, 추천 결과 없는 "고아" 조건이
+     * 남지 않도록 ConditionServiceImpl이 보상 삭제(compensating delete)로 호출한다 - insert()가
+     * 별도 트랜잭션으로 이미 커밋된 뒤라 그 실패와 하나의 트랜잭션으로 묶을 수 없기 때문이다.
+     * FK 제약 때문에 하위 테이블부터 지우고 user_conditions를 마지막에 지운다.
+     */
+    @Transactional
+    public void delete(Long conditionId) {
+        conditionWeightMapper.deleteByConditionId(conditionId);
+        conditionEssentialMapper.deleteByConditionId(conditionId);
+        preferredHouseTypeMapper.deleteByConditionId(conditionId);
+        conditionGuMapper.deleteByConditionId(conditionId);
+        userConditionMapper.deleteByConditionId(conditionId);
     }
 
     private void insertWeights(Long conditionId, Map<String, BigDecimal> categoryWeights) {

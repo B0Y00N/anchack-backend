@@ -22,4 +22,9 @@
     WHERE condition_id = #{conditionId}
   </select>
 
+  <delete id="deleteByConditionId">
+    DELETE FROM condition_weights
+    WHERE condition_id = #{conditionId}
+  </delete>
+
 </mapper>
