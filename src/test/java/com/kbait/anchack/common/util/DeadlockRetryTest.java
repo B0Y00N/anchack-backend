@@ -49,4 +49,27 @@ class DeadlockRetryTest {
 
         assertThat(attempts.get()).isEqualTo(3);
     }
+
+    /**
+     * Thread.sleep()은 잠들기 직전에 인터럽트 플래그가 이미 켜져 있으면 그 자리에서 바로
+     * InterruptedException을 던지는 규약이 있다 - 그래서 별도 스레드로 타이밍을 맞출 필요
+     * 없이, 테스트 스레드 자신에 미리 인터럽트를 걸어두면 execute()의 재시도 대기
+     * (sleepBeforeRetry) 진입 즉시 이 분기를 탈 수 있다.
+     */
+    @Test
+    void 재시도_대기_중_인터럽트되면_IllegalStateException을_던지고_인터럽트_상태를_복원한다() {
+        Thread.currentThread().interrupt();
+
+        try {
+            assertThatThrownBy(() -> DeadlockRetry.execute(() -> {
+                throw new DeadlockLoserDataAccessException("deadlock", null);
+            }))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasCauseInstanceOf(InterruptedException.class);
+
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted(); // 인터럽트 상태를 정리해 이후 테스트에 영향을 주지 않는다.
+        }
+    }
 }
