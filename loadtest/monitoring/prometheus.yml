@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: mysqld-exporter
+    static_configs:
+      - targets: ["mysqld-exporter:9104"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+# k6는 별도 scrape 대상이 아니다 - `--out experimental-prometheus-rw`로 이 컨테이너의
+# /api/v1/write에 직접 push한다(그래서 --web.enable-remote-write-receiver가 필요).

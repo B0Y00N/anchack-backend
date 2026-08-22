@@ -41,6 +41,7 @@ SELECT DISTINCT house_type FROM property_metrics;
 | `k6/scenarios/01_write_heavy.js` | 핵심 쓰기 경로: create+recompute를 VU 0→50까지 램핑. `DEST_ADDRESS_RATIO`로 destAddress 섞는 비율 조절(기본 0) | `k6 run -e JWT_SECRET=<값> -e DEST_ADDRESS_RATIO=0.2 loadtest/k6/scenarios/01_write_heavy.js` |
 | `k6/scenarios/02_read_baseline.js` | 읽기 경로 대조군: 저장된 결과 복원(`GET /recommendations`)과 `GET /saved`만 VU 0→100 램핑 | `k6 run -e JWT_SECRET=<값> loadtest/k6/scenarios/02_read_baseline.js` |
 | `k6/scenarios/03_mixed.js` | 혼합: 읽기 70% / 생성 20% / 재계산 10% 비율로 VU 0→30 램핑 (실제 트래픽 패턴에 가까운 그림). `READ_RATIO`/`CREATE_RATIO`로 비율 조절 가능 | `k6 run -e JWT_SECRET=<값> loadtest/k6/scenarios/03_mixed.js` |
+| `k6/scenarios/04_breakpoint.js` | 브레이크포인트: create+recompute에 VU를 0→`MAX_VUS`(기본 400)까지 완만하게 계속 올리다가 에러율 1% 또는 p95 3초를 넘으면 자동 중단(`abortOnFail`) — 정확히 몇 VU에서 무너지는지 찾는 용도 | `k6 run -e JWT_SECRET=<값> loadtest/k6/scenarios/04_breakpoint.js` |
 
 `JWT_SECRET`은 `.env`의 `JWT_SECRET`과 반드시 동일한 값이어야 한다(HS256 서명 검증). `BASE_URL`은 기본 `http://localhost:8080`.
 
@@ -50,9 +51,31 @@ JWT_SECRET=$(grep -oP '^JWT_SECRET=\K.*' .env)
 k6 run -e JWT_SECRET="$JWT_SECRET" loadtest/k6/scenarios/00_smoke.js
 ```
 
-## 2. 다음에 추가할 시나리오
+## 2. Prometheus + Grafana
 
-- **브레이크포인트**: `01_write_heavy`의 `stages`를 에러율/레이턴시 임계값 넘을 때까지 계속 올리는 형태로 변형 (`executor: ramping-vus` + 높은 target으로 확장)
+기본 `docker compose up`에는 안 뜬다 - 모니터링 스택은 `monitoring` profile로 분리해뒀다.
+
+```bash
+docker compose --profile monitoring up -d mysqld-exporter prometheus grafana
+```
+
+- **Prometheus**: http://localhost:9090 — `loadtest/monitoring/prometheus.yml`이 `mysqld-exporter`(MySQL 지표)를 스크랩하고, `--web.enable-remote-write-receiver`로 k6가 직접 push하는 것도 받는다.
+- **Grafana**: http://localhost:3000 — 로컬 전용이라 익명 admin 접속 허용해둠(로그인 없이 바로 들어가짐). Prometheus 데이터소스는 `loadtest/monitoring/grafana-datasources.yml`로 자동 등록됨. 처음 들어가면 Dashboards → New → Import에서 아래 두 개를 데이터소스는 Prometheus로 선택해서 넣으면 됨:
+  - **19665** — k6 공식 Prometheus 대시보드 (요청 처리량/레이턴시/에러율)
+  - **7362** — MySQL Overview (mysqld_exporter용 — 커넥션 수, 슬로우 쿼리, InnoDB 상태)
+
+k6 시나리오를 돌릴 때 `--out experimental-prometheus-rw`만 추가하면 Prometheus로 메트릭이 push된다:
+
+```bash
+k6 run -e BASE_URL=http://localhost:8080 -e JWT_SECRET="$JWT_SECRET" \
+  --out experimental-prometheus-rw \
+  loadtest/k6/scenarios/01_write_heavy.js
+```
+
+기본 push 대상은 `http://localhost:9090/api/v1/write`라 별도 설정 없이 위 명령으로 바로 동작한다. 다른 주소를 쓰려면 `K6_PROMETHEUS_RW_SERVER_URL` 환경변수로 덮어쓸 것. p95/p99까지 대시보드에서 보고 싶으면 `K6_PROMETHEUS_RW_TREND_STATS="p(95),p(99)"`도 같이 넘기면 된다.
+
+**주의**: 이 프로젝트는 Spring Boot가 아니라 Spring MVC라 Actuator/Micrometer가 없다 - 지금 구성은 **k6 자체 메트릭 + MySQL 서버 메트릭**만 본다. JVM/Tomcat(힙, GC, 커넥션 풀 대기 큐 등) 시각화는 아직 없음 - 필요해지면 Prometheus JMX Exporter를 javaagent로 붙이는 걸 추후 검토.
+
+## 3. 다음에 추가할 시나리오
+
 - **소크**: `constant-vus` executor로 VU 10~20을 30~60분 유지. 이 경우 `mintToken`이 setup()에서 한 번만 발급되는 `02_read_baseline.js` 패턴을 쓰면 안 됨 — 기본 JWT 만료(1시간)를 넘길 수 있으니 매 iteration마다 새로 발급하거나 `JWT_EXPIRATION_MS`를 늘려서 재빌드해야 함
-
-Prometheus/Grafana 연동은 별도로 진행 예정 (`k6 run --out experimental-prometheus-rw`로 k6 자체 메트릭을 push).

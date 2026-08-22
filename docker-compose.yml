@@ -72,5 +72,59 @@ services:
       JWT_SECRET: ${JWT_SECRET:-}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-3600000}
 
+  # 부하테스트 관찰용 - 기본 `docker compose up`에는 안 뜨고
+  # `docker compose --profile monitoring up -d`로만 띄운다.
+  # (loadtest/README.md 참고)
+  mysqld-exporter:
+    image: prom/mysqld-exporter:latest
+    profiles: ["monitoring"]
+    # mysqld_exporter 0.20+는 DATA_SOURCE_NAME 환경변수를 안 읽고 .my.cnf 파일만 본다
+    # (--config.my-cnf). 비밀번호를 git에 커밋되는 파일에 그대로 적을 수 없으니,
+    # 컨테이너 시작 시 이 서비스의 DB_ROOT_PASSWORD 환경변수로 .my.cnf를 즉석에서 만든다.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        printf '[client]\nuser=root\npassword=%s\nhost=mysql\nport=3306\n' "$$DB_ROOT_PASSWORD" > /tmp/.my.cnf
+        exec /bin/mysqld_exporter --config.my-cnf=/tmp/.my.cnf
+    environment:
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "9104:9104"
+
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: ["monitoring"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ./loadtest/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - mysqld-exporter
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles: ["monitoring"]
+    ports:
+      - "3000:3000"
+    environment:
+      # 로컬 부하테스트 전용 구성이라 로그인 없이 바로 보게 익명 admin 접근을 켠다 -
+      # 원격/공유 환경에 그대로 쓰면 안 됨.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+    volumes:
+      - ./loadtest/monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   mysql_data:
+  prometheus_data:
+  grafana_data:
