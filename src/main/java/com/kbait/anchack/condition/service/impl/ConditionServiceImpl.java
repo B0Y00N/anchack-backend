@@ -126,17 +126,23 @@ public class ConditionServiceImpl implements ConditionService {
                 translateHouseTypes(request.getPreferredHouseTypes()),
                 request.getGuCodes());
 
+        List<RecommendationRow> recommendations;
+
         try {
             ConditionBundle bundle = toConditionBundle(conditionId, request, categoryWeights);
             List<RecommendationRow> computed = recommendationService.compute(bundle);
-            List<RecommendationRow> recommendations =
-                    DeadlockRetry.execute(() -> recommendationService.persist(conditionId, computed));
-
-            return toResponse(conditionId, recommendations);
+            recommendations = DeadlockRetry.execute(() -> recommendationService.persist(conditionId, computed));
         } catch (RuntimeException e) {
             cleanUpFailedCondition(conditionId, e);
             throw e;
         }
+
+        // toResponse()는 DB 호출이 없는 순수 변환이라 일부러 try 밖에 둔다 - persist()가 이미
+        // 성공해 recommendations/recommendation_scores가 커밋된 뒤라, 여기서 예외가 나도 정리
+        // 대상이 아니다. try 안에 있으면 UserConditionWriter.delete()가 recommendations는
+        // 못 지우면서 user_conditions만 지우려다 그 FK 때문에 실패하고, 그 실패를 삼키는
+        // 사이 하위테이블(가중치 등)만 없는 반쯤 망가진 조건이 남는 문제가 있었다.
+        return toResponse(conditionId, recommendations);
     }
 
     /**

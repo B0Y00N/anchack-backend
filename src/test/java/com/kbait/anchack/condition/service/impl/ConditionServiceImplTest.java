@@ -127,6 +127,7 @@ class ConditionServiceImplTest {
         inOrder.verify(userConditionWriter).insert(any(), any(), any(), any(), any());
         inOrder.verify(recommendationService).compute(any());
         inOrder.verify(recommendationService).persist(any(), any());
+        verify(userConditionWriter, never()).delete(any());
     }
 
     @Test
@@ -139,7 +140,7 @@ class ConditionServiceImplTest {
                 .isSameAs(computeFailure);
 
         verify(userConditionWriter).delete(1L);
-        verifyNoInteractions(recommendationMapper); // persist는 애초에 호출되지 않음(compute가 먼저 터짐)
+        verify(recommendationService, never()).persist(any(), any()); // compute가 먼저 터져서 persist는 호출되지 않음
     }
 
     @Test
