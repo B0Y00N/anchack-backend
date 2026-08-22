@@ -26,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DeadlockLoserDataAccessException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -38,6 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -125,6 +127,35 @@ class ConditionServiceImplTest {
         inOrder.verify(userConditionWriter).insert(any(), any(), any(), any(), any());
         inOrder.verify(recommendationService).compute(any());
         inOrder.verify(recommendationService).persist(any(), any());
+    }
+
+    @Test
+    void 계산이_실패하면_방금_만든_조건을_정리하고_원래_예외를_그대로_던진다() {
+        when(userConditionWriter.insert(any(), any(), any(), any(), any())).thenReturn(1L);
+        RuntimeException computeFailure = new RuntimeException("카카오 API 호출 실패");
+        when(recommendationService.compute(any())).thenThrow(computeFailure);
+
+        assertThatThrownBy(() -> service.createAndRecommend(10L, validRequest(List.of("SAFETY"))))
+                .isSameAs(computeFailure);
+
+        verify(userConditionWriter).delete(1L);
+        verifyNoInteractions(recommendationMapper); // persist는 애초에 호출되지 않음(compute가 먼저 터짐)
+    }
+
+    @Test
+    void 반영이_데드락_재시도를_다_써도_실패하면_방금_만든_조건을_정리하고_원래_예외를_그대로_던진다() {
+        when(userConditionWriter.insert(any(), any(), any(), any(), any())).thenReturn(1L);
+        when(recommendationService.compute(any())).thenReturn(List.of());
+        DeadlockLoserDataAccessException persistFailure =
+                new DeadlockLoserDataAccessException("deadlock", null);
+        when(recommendationService.persist(any(), any())).thenThrow(persistFailure);
+
+        assertThatThrownBy(() -> service.createAndRecommend(10L, validRequest(List.of("SAFETY"))))
+                .isSameAs(persistFailure);
+
+        verify(userConditionWriter).delete(1L);
+        // DeadlockRetry가 총 3회 시도한다 - persist()도 그만큼 다시 호출됐어야 한다.
+        verify(recommendationService, times(3)).persist(any(), any());
     }
 
     @Test

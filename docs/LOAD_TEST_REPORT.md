@@ -282,11 +282,32 @@ OpenAI 호출까지 처음부터 다시 실행되는 셈이었다. 이 프로젝
 저장(트랜잭션 있음) → 계산(외부 호출, 트랜잭션 없음) → 반영(트랜잭션 있음 + 재시도)이
 서로 다른 트랜잭션 경계를 가질 수 있다.
 
-이 구조에서는 `persist()`가 재시도 3번을 전부 실패하면 조건(`user_conditions`)은 이미
-저장돼 있는데 추천 결과(`recommendations`)만 없는 상태가 남을 수 있다 - 원래는 전체가
-한 트랜잭션이라 이런 부분 실패가 없었다. 다만 이 확률은 이미 0.1% 미만으로 매우 낮고,
-API 응답 자체는 예전과 동일하게 실패로 내려가므로(클라이언트가 재시도하면 새 조건이
-다시 만들어짐) 실용적으로 받아들일 만한 트레이드오프로 판단했다.
+이 구조에서는 저장이 별도 트랜잭션으로 이미 커밋된 뒤 계산(`compute()`)이나 반영
+(`persist()`, 재시도 3번 소진 포함)이 실패할 수 있어서, 그대로 두면 조건(`user_conditions`)만
+남고 추천 결과(`recommendations`)는 없는 "고아" 상태가 생긴다 - 원래는 전체가 한
+트랜잭션이라 이런 부분 실패가 없었다. 처음에는 이 확률이 낮다는 이유로 트레이드오프로
+받아들이고 넘어갔는데, PR 리뷰에서 "확률이 낮다고 정책 없이 방치하면 안 된다 - 조건을
+복구 가능하게 만들거나 정리 정책을 문서화하라"는 지적을 받아 실제 정리 정책을 추가했다.
+
+**정리 정책**: `createAndRecommend()`가 `compute()`/`persist()` 호출을 `try-catch`로 감싸,
+`RuntimeException`이 나면 방금 만든 조건을
+[UserConditionWriter.delete()](../src/main/java/com/kbait/anchack/condition/service/impl/UserConditionWriter.java)로
+**보상 삭제(compensating delete)** 한 뒤 원래 예외를 그대로 다시 던진다. FK 제약 때문에
+하위 테이블(condition_weights/condition_essentials/preferred_house_types/condition_gus)을
+먼저 지우고 `user_conditions`를 마지막에 지운다. 이 삭제 자체가 실패해도(예: DB 순간
+장애) 원래 예외를 가리지 않도록 별도로 잡아 로그만 남기고 원래 예외를 그대로 던진다 -
+이 경우에만 여전히 고아 행이 남을 수 있는데, 이건 방금 커밋된 트랜잭션을 되돌리는 것
+자체가 DB 상태에 의존하는 문제라 애플리케이션 레벨에서 더 강하게 보장하기 어렵다고
+판단해 남겨뒀다.
+
+결과적으로 `recompute()`는 대상이 아니다 - 기존 `recommendations`를 DELETE+INSERT로
+교체하는 `persist()`가 실패해도 그 자체가 `@Transactional`이라 기존 값이 그대로 롤백되어
+남기 때문에, 애초에 고아 상태가 생기지 않는다.
+
+로컬에서 실제 카카오 geocoding이 실패하는 주소(`AddressNotFoundException`)로 재현해
+검증했다: 요청은 그대로 400 에러로 응답됐고, 앱 로그에 "조건 생성 중 추천 계산/반영이
+실패해 conditionId=N를 정리했습니다"가 찍혔으며, DB에서 해당 `condition_id`가 실제로
+남지 않은 것을 확인했다(직전 커밋된 최대 `condition_id`가 그대로 유지됨).
 
 ### 5.4 수정 검증
 

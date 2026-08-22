@@ -22,6 +22,8 @@ import com.kbait.anchack.recommendation.dto.RecommendationRow;
 import com.kbait.anchack.recommendation.mapper.RecommendationMapper;
 import com.kbait.anchack.recommendation.service.RecommendationService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,10 +47,19 @@ import java.util.stream.Collectors;
  * @Transactional을 붙이면 그 안의 모든 호출이 하나의 트랜잭션/커넥션으로 묶여버려서,
  * persist()가 데드락으로 재시도될 때 이미 끝난 외부 API 호출까지 다시 실행되는 문제로
  * 되돌아간다.
+ *
+ * createAndRecommend()는 저장이 이미 별도 트랜잭션으로 커밋된 뒤 계산/반영이 실패할 수
+ * 있어서, 그 경우 방금 만든 조건을 UserConditionWriter.delete()로 보상 삭제한다 - 그래야
+ * "추천 결과 없는 조건"이 남지 않고, 예전(모든 단계가 한 트랜잭션이던 시절)과 동일하게
+ * 전부 성공 아니면 전부 없음이 유지된다. recompute()는 이 처리가 필요 없다 - 기존
+ * recommendations를 DELETE+INSERT로 교체하는 persist()가 실패하면 그 자체가
+ * @Transactional이라 기존 값이 그대로 롤백되어 남기 때문에 애초에 고아 상태가 생기지 않는다.
  */
 @Service
 @RequiredArgsConstructor
 public class ConditionServiceImpl implements ConditionService {
+
+    private static final Logger log = LoggerFactory.getLogger(ConditionServiceImpl.class);
 
     private static final Map<String, String> RENTAL_TYPE_CODES = Map.of(
             "MONTHLY", "월세",
@@ -115,12 +126,35 @@ public class ConditionServiceImpl implements ConditionService {
                 translateHouseTypes(request.getPreferredHouseTypes()),
                 request.getGuCodes());
 
-        ConditionBundle bundle = toConditionBundle(conditionId, request, categoryWeights);
-        List<RecommendationRow> computed = recommendationService.compute(bundle);
-        List<RecommendationRow> recommendations =
-                DeadlockRetry.execute(() -> recommendationService.persist(conditionId, computed));
+        try {
+            ConditionBundle bundle = toConditionBundle(conditionId, request, categoryWeights);
+            List<RecommendationRow> computed = recommendationService.compute(bundle);
+            List<RecommendationRow> recommendations =
+                    DeadlockRetry.execute(() -> recommendationService.persist(conditionId, computed));
 
-        return toResponse(conditionId, recommendations);
+            return toResponse(conditionId, recommendations);
+        } catch (RuntimeException e) {
+            cleanUpFailedCondition(conditionId, e);
+            throw e;
+        }
+    }
+
+    /**
+     * 계산/반영 실패로 추천 결과 없이 남게 된 조건을 지운다. 삭제 자체가 실패해도 원래
+     * 예외(e)를 가리지 않도록 별도로 잡아 로그만 남기고, 항상 원래 예외를 그대로 던진다.
+     */
+    private void cleanUpFailedCondition(Long conditionId, RuntimeException cause) {
+        try {
+            userConditionWriter.delete(conditionId);
+        } catch (RuntimeException cleanupException) {
+            log.error(
+                    "조건 생성 실패 후 정리(삭제)까지 실패했습니다: conditionId={} - 추천 결과 없는 조건이 남았을 수 있습니다.",
+                    conditionId, cleanupException);
+
+            return;
+        }
+
+        log.warn("조건 생성 중 추천 계산/반영이 실패해 conditionId={}를 정리했습니다.", conditionId, cause);
     }
 
     /**
