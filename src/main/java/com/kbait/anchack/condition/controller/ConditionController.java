@@ -4,7 +4,6 @@ import com.kbait.anchack.common.exception.ErrorCode;
 import com.kbait.anchack.common.response.ApiResponse;
 import com.kbait.anchack.common.security.AuthenticatedUserResolver;
 import com.kbait.anchack.common.security.JwtAuthenticationFilter;
-import com.kbait.anchack.common.util.DeadlockRetry;
 import com.kbait.anchack.condition.dto.RecommendedDongResponse;
 import com.kbait.anchack.condition.dto.SaveConditionRequest;
 import com.kbait.anchack.condition.dto.SavedConditionResponse;
@@ -46,10 +45,7 @@ public class ConditionController {
                     ApiResponse.error(ErrorCode.AUTH_UNAUTHORIZED.name(), ErrorCode.AUTH_UNAUTHORIZED.getMessage()));
         }
 
-        // recommendations INSERT가 admin_dongs FK 참조 데드락에 걸릴 수 있어 재시도한다
-        // (DeadlockRetry 참고 - @Transactional 메서드를 호출하는 이 지점에서 걸어야 함).
-        UserConditionCreateResponse response =
-                DeadlockRetry.execute(() -> conditionService.createAndRecommend(userId, request));
+        UserConditionCreateResponse response = conditionService.createAndRecommend(userId, request);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -135,9 +131,7 @@ public class ConditionController {
     ) {
         Long userId = AuthenticatedUserResolver.requireUserId(httpRequest);
 
-        // create와 동일한 이유로 데드락 재시도 (DeadlockRetry 참고).
-        UserConditionCreateResponse response =
-                DeadlockRetry.execute(() -> conditionService.recompute(userId, conditionId));
+        UserConditionCreateResponse response = conditionService.recompute(userId, conditionId);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }

@@ -67,14 +67,13 @@ class RecommendationServiceImplTest {
         when(hardFilterService.filter(any())).thenReturn(List.of(candidate(1L)));
         when(recommendationReasonClient.generate(any())).thenReturn(placeholderReason());
         when(adminDongMapper.findById(any())).thenReturn(adminDong());
-        mockInsertAssignsIds();
     }
 
     @Test
     void 상위_5개만_저장하고_반환한다() {
         when(recommendationScoreCalculator.calculate(any(), any())).thenReturn(rankedList(7));
 
-        List<RecommendationRow> result = service.generate(condition());
+        List<RecommendationRow> result = service.compute(condition());
 
         assertThat(result).hasSize(5);
         assertThat(result).extracting(RecommendationRow::getRank).containsExactly(1, 2, 3, 4, 5);
@@ -84,7 +83,7 @@ class RecommendationServiceImplTest {
     void admin_dong의_구이름_동이름_좌표를_결과에_채운다() {
         when(recommendationScoreCalculator.calculate(any(), any())).thenReturn(rankedList(1));
 
-        List<RecommendationRow> result = service.generate(condition());
+        List<RecommendationRow> result = service.compute(condition());
 
         assertThat(result.get(0).getGuName()).isEqualTo("마포구");
         assertThat(result.get(0).getDongName()).isEqualTo("서교동");
@@ -95,8 +94,10 @@ class RecommendationServiceImplTest {
     @Test
     void 삭제는_scores_먼저_recommendations_다음_INSERT_순서로_호출된다() {
         when(recommendationScoreCalculator.calculate(any(), any())).thenReturn(rankedList(1));
+        mockInsertAssignsIds();
+        List<RecommendationRow> computed = service.compute(condition());
 
-        service.generate(condition());
+        service.persist(1L, computed);
 
         InOrder inOrder = inOrder(recommendationScoreMapper, recommendationMapper);
         inOrder.verify(recommendationScoreMapper).deleteByConditionId(1L);
@@ -108,8 +109,10 @@ class RecommendationServiceImplTest {
     @Test
     void INSERT_이후_반환값에_생성된_recommendationId가_채워진다() {
         when(recommendationScoreCalculator.calculate(any(), any())).thenReturn(rankedList(1));
+        mockInsertAssignsIds();
+        List<RecommendationRow> computed = service.compute(condition());
 
-        List<RecommendationRow> result = service.generate(condition());
+        List<RecommendationRow> result = service.persist(1L, computed);
 
         assertThat(result.get(0).getRecommendationId()).isEqualTo(100L);
     }

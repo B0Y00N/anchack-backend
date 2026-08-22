@@ -242,17 +242,51 @@ VU가 적을 때는 이런 충돌이 우연히 일어날 확률이 낮아 안 �
 문장 하나만 다시 실행해서는 안 되고 **그 작업 전체를 처음부터 다시 시작**해야 한다.
 
 이를 위해 [DeadlockRetry.java](../src/main/java/com/kbait/anchack/common/util/DeadlockRetry.java)
-라는 재시도 유틸리티를 만들어 조건 생성/재계산 API를 감싸도록 했다
-([ConditionController.java](../src/main/java/com/kbait/anchack/condition/controller/ConditionController.java)).
-데드락 예외(`DeadlockLoserDataAccessException`)가 나면, 시도 횟수에 비례해 잠깐 대기했다가
-(재시도들이 또 같은 타이밍에 몰려 데드락을 재생산하지 않도록 무작위 지터도 섞음) 총 3회
-시도한다(최초 1회 + 재시도 2회). 3번 다 실패해야만 진짜로 에러 응답을 내려준다.
+라는 재시도 유틸리티를 만들었다. 데드락 예외(`DeadlockLoserDataAccessException`)가 나면,
+시도 횟수에 비례해 잠깐 대기했다가(재시도들이 또 같은 타이밍에 몰려 데드락을 재생산하지
+않도록 무작위 지터도 섞음) 총 3회 시도한다(최초 1회 + 재시도 2회). 3번 다 실패해야만
+진짜로 에러 응답을 내려준다.
 
-> 왜 서비스 코드 내부가 아니라 컨트롤러에서 재시도를 걸었는지도 기술적으로 중요한
-> 이유가 있다: Spring의 트랜잭션 관리는 "프록시"라는 방식으로 동작하는데, 같은 클래스
-> 안에서 자기 자신의 메서드를 다시 호출하면 이 프록시를 거치지 않아 트랜잭션이 새로
-> 시작되지 않는다. 그래서 재시도는 그 메서드를 "호출하는 바깥쪽"에서 걸어야 매번 진짜
-> 새 트랜잭션으로 재시도된다.
+> Spring의 트랜잭션 관리는 "프록시"라는 방식으로 동작하는데, 같은 클래스 안에서 자기
+> 자신의 메서드를 다시 호출하면 이 프록시를 거치지 않아 트랜잭션이 새로 시작되지 않는다
+> (self-invocation 문제). 그래서 재시도는 그 @Transactional 메서드를 "다른 빈에서
+> 호출하는 지점"에서 걸어야 매번 진짜 새 트랜잭션으로 재시도된다.
+
+이 재시도 범위를 어디로 잡을지는 한 번 더 손을 봤다 - 5.3.1 참고.
+
+#### 5.3.1 재시도 범위를 DB 저장 부분만으로 좁힘 (PR 리뷰 반영)
+
+처음 구현에서는 `ConditionController`가 `conditionService.createAndRecommend(...)` 호출
+전체를 `DeadlockRetry`로 감쌌다. 문제는 이 호출 안에 데드락이 실제로 나는 `recommendations`
+INSERT뿐 아니라, **하드필터의 카카오 API 호출과 reason 생성의 OpenAI 호출(외부 API)도
+같이 포함**돼 있었다는 점이다 - INSERT에서 데드락이 나서 재시도하면, 이미 끝난 카카오/
+OpenAI 호출까지 처음부터 다시 실행되는 셈이었다. 이 프로젝트는 카카오 API 레이트리밋으로
+이미 한 번 크게 고생한 전례가 있어서([ROUTE_API_RATE_LIMIT_ISSUE.md](ROUTE_API_RATE_LIMIT_ISSUE.md)),
+하필 데드락이 잘 나는 상황(동시 요청 몰림)이 카카오 API도 몰리는 상황과 겹쳐 재시도가
+레이트리밋을 더 쉽게 건드리게 만들 위험이 있었다. 게다가 부하테스트 내내 `ROUTE_MODE=stub`을
+썼기 때문에 이 문제 자체를 테스트로 확인한 적도 없었다.
+
+그래서 `RecommendationService.generate()` 하나였던 메서드를 둘로 쪼갰다:
+
+- **`compute(ConditionBundle)`**: 하드필터·스코어링·reason 생성(외부 호출 포함)만 하고
+  DB에 아무것도 쓰지 않는다. 트랜잭션을 걸지 않는다 - 걸면 카카오 API 응답을 기다리는
+  동안 DB 커넥션을 계속 붙잡고 있게 되기 때문이다.
+- **`persist(conditionId, rows)`**: compute()가 만든 결과를 recommendations/
+  recommendation_scores에 반영한다. 이 메서드만 `@Transactional`이고, `DeadlockRetry`도
+  이 메서드를 호출하는 지점(`ConditionServiceImpl`, `RecommendationService`와는 다른 빈)에서
+  건다.
+
+`ConditionServiceImpl.createAndRecommend()`도 조건 저장 부분을 별도 빈
+([UserConditionWriter.java](../src/main/java/com/kbait/anchack/condition/service/impl/UserConditionWriter.java))으로
+빼고, `createAndRecommend()`/`recompute()` 자체는 `@Transactional`을 떼어냈다 - 그래야
+저장(트랜잭션 있음) → 계산(외부 호출, 트랜잭션 없음) → 반영(트랜잭션 있음 + 재시도)이
+서로 다른 트랜잭션 경계를 가질 수 있다.
+
+이 구조에서는 `persist()`가 재시도 3번을 전부 실패하면 조건(`user_conditions`)은 이미
+저장돼 있는데 추천 결과(`recommendations`)만 없는 상태가 남을 수 있다 - 원래는 전체가
+한 트랜잭션이라 이런 부분 실패가 없었다. 다만 이 확률은 이미 0.1% 미만으로 매우 낮고,
+API 응답 자체는 예전과 동일하게 실패로 내려가므로(클라이언트가 재시도하면 새 조건이
+다시 만들어짐) 실용적으로 받아들일 만한 트레이드오프로 판단했다.
 
 ### 5.4 수정 검증
 

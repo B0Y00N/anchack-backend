@@ -11,13 +11,18 @@ import java.util.function.Supplier;
  * 다시 실행해서는 복구되지 않고, @Transactional 메서드 호출 자체를 처음부터 다시 시작해야
  * 새 트랜잭션으로 재시도된다. Spring의 @Transactional은 AOP 프록시로 동작하므로 같은 빈
  * 안에서 this.method()로 자기 자신을 호출하면 프록시를 안 거쳐 트랜잭션이 새로 시작되지
- * 않는다(self-invocation 문제) - 그래서 이 재시도는 @Transactional 메서드를 "호출하는 쪽"
- * (Controller)에서 걸어야 매 시도마다 실제로 새 트랜잭션이 열린다.
+ * 않는다(self-invocation 문제) - 그래서 이 재시도는 그 @Transactional 메서드를 "다른 빈에서
+ * 호출하는 지점"에서 걸어야 매 시도마다 실제로 새 트랜잭션이 열린다.
  *
  * condition/recommendation 생성·재계산이 실제 사용처다: k6 write_heavy 부하테스트에서
  * VU 20대부터 recommendations INSERT가 admin_dongs를 참조하는 FK 때문에(소수의 상위권
  * 행정동에 여러 트랜잭션의 참조가 몰림) 동시 요청끼리 데드락이 걸려 create 요청의 4.37%가
  * 실패하는 걸 확인했다.
+ *
+ * ConditionServiceImpl이 RecommendationService.persist()(별도 빈, @Transactional)를
+ * 호출하는 지점에서 이 재시도를 건다 - 카카오/OpenAI 외부 호출이 들어있는
+ * RecommendationService.compute()는 재시도 대상에서 제외해, 데드락 재시도가 이미 끝난
+ * 외부 API 호출까지 반복하지 않게 한다.
  */
 public final class DeadlockRetry {
 

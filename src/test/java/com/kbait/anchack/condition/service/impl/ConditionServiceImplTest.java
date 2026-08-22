@@ -29,14 +29,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -62,6 +61,9 @@ class ConditionServiceImplTest {
     private ConditionGuMapper conditionGuMapper;
 
     @Mock
+    private UserConditionWriter userConditionWriter;
+
+    @Mock
     private RecommendationService recommendationService;
 
     @Mock
@@ -80,6 +82,7 @@ class ConditionServiceImplTest {
                 conditionEssentialMapper,
                 preferredHouseTypeMapper,
                 conditionGuMapper,
+                userConditionWriter,
                 recommendationService,
                 recommendationMapper,
                 adminDongMapper);
@@ -87,16 +90,18 @@ class ConditionServiceImplTest {
 
     @Test
     void 우선순위_3개는_3_2_1_가중치로_저장된다() {
-        mockGeneratedConditionId();
-        when(recommendationService.generate(any())).thenReturn(List.of());
-        ArgumentCaptor<List<ConditionWeightRow>> captor = weightRowsCaptor();
+        when(userConditionWriter.insert(any(), any(), any(), any(), any())).thenReturn(1L);
+        when(recommendationService.compute(any())).thenReturn(List.of());
+        when(recommendationService.persist(any(), any())).thenReturn(List.of());
+        ArgumentCaptor<Map<String, BigDecimal>> captor = weightsCaptor();
 
         service.createAndRecommend(10L, validRequest(List.of("SAFETY", "SPORTS", "FOOD")));
 
-        verify(conditionWeightMapper).insertBatch(captor.capture());
+        verify(userConditionWriter).insert(any(), captor.capture(), any(), any(), any());
         assertThat(captor.getValue())
-                .extracting(ConditionWeightRow::getCategory, row -> row.getImportance().intValue())
-                .containsExactly(tuple("SAFETY", 3), tuple("SPORTS", 2), tuple("FOOD", 1));
+                .containsEntry("SAFETY", BigDecimal.valueOf(3))
+                .containsEntry("SPORTS", BigDecimal.valueOf(2))
+                .containsEntry("FOOD", BigDecimal.valueOf(1));
     }
 
     @Test
@@ -105,32 +110,21 @@ class ConditionServiceImplTest {
                 () -> service.createAndRecommend(10L, validRequest(List.of("INVALID"))));
 
         assertThat(thrown).isInstanceOf(IllegalArgumentException.class);
-        verifyNoInteractions(userConditionMapper);
+        verifyNoInteractions(userConditionWriter);
     }
 
     @Test
-    void 사용자_조건_저장_후_하위테이블_저장하고_추천을_호출한다() {
-        mockGeneratedConditionId();
-        when(recommendationService.generate(any())).thenReturn(List.of());
+    void 사용자_조건_저장_후_계산과_반영을_순서대로_호출한다() {
+        when(userConditionWriter.insert(any(), any(), any(), any(), any())).thenReturn(1L);
+        when(recommendationService.compute(any())).thenReturn(List.of());
+        when(recommendationService.persist(any(), any())).thenReturn(List.of());
 
         service.createAndRecommend(10L, validRequest(List.of("SAFETY")));
 
-        InOrder inOrder = inOrder(userConditionMapper, conditionWeightMapper, recommendationService);
-        inOrder.verify(userConditionMapper).insert(any());
-        inOrder.verify(conditionWeightMapper).insertBatch(anyList());
-        inOrder.verify(recommendationService).generate(any());
-    }
-
-    @Test
-    void guCodes가_없으면_condition_gus_insert를_호출하지_않는다() {
-        mockGeneratedConditionId();
-        when(recommendationService.generate(any())).thenReturn(List.of());
-        UserConditionCreateRequest request = validRequest(List.of("SAFETY"));
-        request.setGuCodes(null);
-
-        service.createAndRecommend(10L, request);
-
-        verifyNoInteractions(conditionGuMapper);
+        InOrder inOrder = inOrder(userConditionWriter, recommendationService);
+        inOrder.verify(userConditionWriter).insert(any(), any(), any(), any(), any());
+        inOrder.verify(recommendationService).compute(any());
+        inOrder.verify(recommendationService).persist(any(), any());
     }
 
     @Test
@@ -186,7 +180,8 @@ class ConditionServiceImplTest {
                 .caution("caution")
                 .build();
         ArgumentCaptor<ConditionBundle> bundleCaptor = ArgumentCaptor.forClass(ConditionBundle.class);
-        when(recommendationService.generate(bundleCaptor.capture())).thenReturn(List.of(recommendationRow));
+        when(recommendationService.compute(bundleCaptor.capture())).thenReturn(List.of(recommendationRow));
+        when(recommendationService.persist(eq(1L), any())).thenReturn(List.of(recommendationRow));
 
         UserConditionCreateResponse response = service.recompute(10L, 1L);
 
@@ -380,14 +375,6 @@ class ConditionServiceImplTest {
         assertThat(response.getTransitMin()).isNull();
     }
 
-    private void mockGeneratedConditionId() {
-        doAnswer(invocation -> {
-            UserConditionRow row = invocation.getArgument(0);
-            row.setConditionId(1L);
-            return 1;
-        }).when(userConditionMapper).insert(any());
-    }
-
     private UserConditionCreateRequest validRequest(List<String> priorityCategories) {
         UserConditionCreateRequest request = new UserConditionCreateRequest();
         request.setRentalType("MONTHLY");
@@ -402,7 +389,7 @@ class ConditionServiceImplTest {
     }
 
     @SuppressWarnings("unchecked")
-    private ArgumentCaptor<List<ConditionWeightRow>> weightRowsCaptor() {
-        return ArgumentCaptor.forClass(List.class);
+    private ArgumentCaptor<Map<String, BigDecimal>> weightsCaptor() {
+        return ArgumentCaptor.forClass(Map.class);
     }
 }
