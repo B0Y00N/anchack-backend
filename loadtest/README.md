@@ -42,6 +42,7 @@ SELECT DISTINCT house_type FROM property_metrics;
 | `k6/scenarios/02_read_baseline.js` | 읽기 경로 대조군: 저장된 결과 복원(`GET /recommendations`)과 `GET /saved`만 VU 0→100 램핑 | `k6 run -e JWT_SECRET=<값> loadtest/k6/scenarios/02_read_baseline.js` |
 | `k6/scenarios/03_mixed.js` | 혼합: 읽기 70% / 생성 20% / 재계산 10% 비율로 VU 0→30 램핑 (실제 트래픽 패턴에 가까운 그림). `READ_RATIO`/`CREATE_RATIO`로 비율 조절 가능 | `k6 run -e JWT_SECRET=<값> loadtest/k6/scenarios/03_mixed.js` |
 | `k6/scenarios/04_breakpoint.js` | 브레이크포인트: create+recompute에 VU를 0→`MAX_VUS`(기본 400)까지 완만하게 계속 올리다가 에러율 1% 또는 p95 3초를 넘으면 자동 중단(`abortOnFail`) — 정확히 몇 VU에서 무너지는지 찾는 용도 | `k6 run -e JWT_SECRET=<값> loadtest/k6/scenarios/04_breakpoint.js` |
+| `k6/scenarios/05_soak.js` | 소크: 03_mixed와 동일한 읽기70/생성20/재계산10 비율을 `constant-vus`(기본 15)로 30~60분(기본 `DURATION=30m`) 유지 — 메모리/커넥션 누수, 장시간 성능 저하 확인용. iteration마다 토큰을 새로 발급해 장시간 실행 중 JWT 만료를 피함 | `k6 run -e JWT_SECRET=<값> -e VUS=15 -e DURATION=30m loadtest/k6/scenarios/05_soak.js` |
 
 `JWT_SECRET`은 `.env`의 `JWT_SECRET`과 반드시 동일한 값이어야 한다(HS256 서명 검증). `BASE_URL`은 기본 `http://localhost:8080`.
 
@@ -75,7 +76,3 @@ k6 run -e BASE_URL=http://localhost:8080 -e JWT_SECRET="$JWT_SECRET" \
 기본 push 대상은 `http://localhost:9090/api/v1/write`라 별도 설정 없이 위 명령으로 바로 동작한다. 다른 주소를 쓰려면 `K6_PROMETHEUS_RW_SERVER_URL` 환경변수로 덮어쓸 것. p95/p99까지 대시보드에서 보고 싶으면 `K6_PROMETHEUS_RW_TREND_STATS="p(95),p(99)"`도 같이 넘기면 된다.
 
 **주의**: 이 프로젝트는 Spring Boot가 아니라 Spring MVC라 Actuator/Micrometer가 없다 - 지금 구성은 **k6 자체 메트릭 + MySQL 서버 메트릭**만 본다. JVM/Tomcat(힙, GC, 커넥션 풀 대기 큐 등) 시각화는 아직 없음 - 필요해지면 Prometheus JMX Exporter를 javaagent로 붙이는 걸 추후 검토.
-
-## 3. 다음에 추가할 시나리오
-
-- **소크**: `constant-vus` executor로 VU 10~20을 30~60분 유지. 이 경우 `mintToken`이 setup()에서 한 번만 발급되는 `02_read_baseline.js` 패턴을 쓰면 안 됨 — 기본 JWT 만료(1시간)를 넘길 수 있으니 매 iteration마다 새로 발급하거나 `JWT_EXPIRATION_MS`를 늘려서 재빌드해야 함
