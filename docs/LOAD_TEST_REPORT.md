@@ -1,8 +1,13 @@
 # condition/recommendation 도메인 부하테스트 보고서
 
-`feat/route-stub-mode` 브랜치에서 진행한 condition/recommendation 도메인(조건 등록 및 동네 추천)
+`test/load-test` 브랜치에서 진행한 condition/recommendation 도메인(조건 등록 및 동네 추천)
 부하테스트의 전체 과정, 발견한 문제, 해결 방법, 그리고 그 근거를 정리한다. 부하테스트를 처음
 접하는 사람도 읽을 수 있도록 용어와 계산 과정을 상세히 풀어썼다.
+
+> **이 문서의 범위**: dev에는 운영 코드만 포함한다는 방침에 따라, 이 PR에는 부하테스트로
+> 발견한 **데드락 버그 수정**과 **이 보고서**만 포함했다. 문서에서 언급하는 k6 스크립트,
+> Prometheus/Grafana docker-compose 구성, `ROUTE_MODE` 스텁 전환 등 부하테스트 도구/코드
+> 자체는 `test/load-test` 브랜치에 있으며 이 PR에는 포함되지 않는다.
 
 ---
 
@@ -61,11 +66,10 @@ condition/recommendation 도메인은 사용자가 원하는 조건(통근시간
 ### 3.2 ROUTE_MODE=stub — 카카오 API 없이 테스트하기
 
 `RouteService` 인터페이스에 실제 카카오 API를 호출하는 `RouteServiceImpl`과, 호출 없이
-고정값을 즉시 반환하는 `StubRouteService`([StubRouteService.java](../src/main/java/com/kbait/anchack/route/service/impl/StubRouteService.java))
-두 가지 구현체를 만들고, 환경변수 `ROUTE_MODE`(기본값 `kakao`)로 어느 걸 쓸지 전환할 수 있게
-했다([RouteConfig.java](../src/main/java/com/kbait/anchack/route/config/RouteConfig.java)).
-부하테스트 중에는 `.env`에 `ROUTE_MODE=stub`을 설정해 카카오 호출 없이 나머지 파이프라인
-(하드필터·스코어링·DB)만 순수하게 측정했다.
+고정값을 즉시 반환하는 `StubRouteService`(`test/load-test` 브랜치) 두 가지 구현체를 만들고,
+환경변수 `ROUTE_MODE`(기본값 `kakao`)로 어느 걸 쓸지 전환할 수 있게 했다. 부하테스트 중에는
+`.env`에 `ROUTE_MODE=stub`을 설정해 카카오 호출 없이 나머지 파이프라인(하드필터·스코어링·DB)만
+순수하게 측정했다.
 
 ### 3.3 DB 준비
 
@@ -77,21 +81,21 @@ condition/recommendation 도메인은 사용자가 원하는 조건(통근시간
 
 조건 생성/조회 API는 로그인(JWT)이 필요하다. 실제 카카오 로그인을 매번 거칠 수 없어서,
 부하테스트 전용 유저 50명(`user_id` 4~53, `provider_id`='k6-loadtest-001'~'050')을
-[seed_k6_test_users.sql](../loadtest/seed_k6_test_users.sql)로 미리 만들어뒀다.
+`seed_k6_test_users.sql`(`test/load-test` 브랜치)로 미리 만들어뒀다.
 
 ### 3.5 로그인 없이 인증 토큰(JWT) 발급하기
 
 이 앱은 로그인에 성공하면 JWT(JSON Web Token, 일종의 "이 사람은 로그인했다"는 서명된 증명서)를
 발급하고, 이후 요청마다 이 토큰을 헤더에 담아 보낸다. k6 스크립트가 매번 실제 카카오 로그인을
 거칠 수는 없으므로, 서버와 동일한 서명 비밀키(`.env`의 `JWT_SECRET`)로 k6가 직접 토큰을
-만들어 쓰도록 했다([auth.js](../loadtest/k6/lib/auth.js)). 서버 입장에서는 실제 로그인을
+만들어 쓰도록 했다(`auth.js`, `test/load-test` 브랜치). 서버 입장에서는 실제 로그인을
 거친 토큰과 구분할 수 없어 정상적으로 인증된다.
 
 ---
 
 ## 4. 시나리오별 실행 결과
 
-총 6개 시나리오를 만들어([loadtest/k6/scenarios/](../loadtest/k6/scenarios/)) 순서대로
+총 6개 시나리오를 만들어(`loadtest/k6/scenarios/`, `test/load-test` 브랜치) 순서대로
 실행했다. 각 시나리오가 왜 필요한지, 무엇을 확인했는지, 결과가 무엇이었는지를 순서대로 적는다.
 
 ### 4.1 스모크 테스트 (00_smoke.js)
@@ -318,8 +322,8 @@ HikariCP 개발자가 제시하는 적정 풀 크기 공식이 있다:
 ### 6.5 결론
 
 **풀 크기를 늘리는 건 이 환경에서 뚜렷한 이득이 없다고 판단해 10으로 되돌렸다.** 판단
-근거와 실험 결과는 [RootConfig.java](../src/main/java/com/kbait/anchack/common/config/RootConfig.java)의
-주석으로 남겨, 나중에 같은 실험을 반복하지 않도록 했다. 진짜 성능을 더 끌어올리려면 풀
+근거와 실험 결과는 이 문서와 `test/load-test` 브랜치의 `RootConfig.java` 주석으로 남겨,
+나중에 같은 실험을 반복하지 않도록 했다. 진짜 성능을 더 끌어올리려면 풀
 크기가 아니라 (1) 캐시 없이 매번 전체 스캔하는 스코어링 쿼리(`MetricScoreMapper`)를
 캐싱하거나, (2) DB 서버 자체의 CPU 스펙을 늘리는 쪽이 더 근본적인 방향으로 보인다.
 
@@ -336,9 +340,9 @@ k6가 테스트 종료 후 보여주는 요약 결과만으로는 "왜" 느려�
 
 ### 7.2 구성
 
-`docker-compose.yml`에 아래 세 가지를 `monitoring`이라는 이름의 그룹(profile)으로 묶어
-추가했다. 평소 `docker compose up`으로는 안 뜨고, 필요할 때만
-`docker compose --profile monitoring up -d`로 켠다([loadtest/README.md](../loadtest/README.md) 참고).
+`docker-compose.yml`(`test/load-test` 브랜치)에 아래 세 가지를 `monitoring`이라는 이름의
+그룹(profile)으로 묶어 추가했다. 평소 `docker compose up`으로는 안 뜨고, 필요할 때만
+`docker compose --profile monitoring up -d`로 켠다(`loadtest/README.md` 참고).
 
 - **mysqld-exporter**: MySQL 서버의 내부 상태(커넥션 수, 슬로우 쿼리 등)를 읽어서 외부에서
   조회 가능한 형태로 변환해주는 도구.
@@ -368,19 +372,26 @@ mysqld-exporter용)를 가져와(Import) 쓰면 바로 그래프를 볼 수 있�
 
 ## 8. 사용한 도구 · 코드 목록
 
+### 이 PR에 포함된 것
+
 | 위치 | 설명 |
 |---|---|
-| [loadtest/README.md](../loadtest/README.md) | 시나리오 실행 방법, 사전 준비, 모니터링 사용법 |
-| [loadtest/seed_k6_test_users.sql](../loadtest/seed_k6_test_users.sql) | 테스트 전용 유저 50명 시딩 SQL |
-| [loadtest/k6/lib/](../loadtest/k6/lib/) | JWT 발급(`auth.js`), 조건 페이로드 생성(`payloads.js`), 공통 설정(`config.js`) |
-| [loadtest/k6/scenarios/](../loadtest/k6/scenarios/) | 00_smoke ~ 05_soak, 6개 시나리오 스크립트 |
-| [loadtest/monitoring/](../loadtest/monitoring/) | Prometheus 설정, Grafana 데이터소스 설정 |
-| [StubRouteService.java](../src/main/java/com/kbait/anchack/route/service/impl/StubRouteService.java) | 카카오 API 없이 통근 계산을 흉내내는 스텁 |
-| [RouteConfig.java](../src/main/java/com/kbait/anchack/route/config/RouteConfig.java) | `ROUTE_MODE`로 실제/스텁 구현 전환 |
 | [DeadlockRetry.java](../src/main/java/com/kbait/anchack/common/util/DeadlockRetry.java) | 데드락 재시도 유틸 |
 | [ConditionController.java](../src/main/java/com/kbait/anchack/condition/controller/ConditionController.java) | 생성/재계산 API에 데드락 재시도 적용 |
-| [RootConfig.java](../src/main/java/com/kbait/anchack/common/config/RootConfig.java) | HikariCP 풀 크기 설정 및 실험 근거 주석 |
-| `docker-compose.yml` | `monitoring` profile로 Prometheus/Grafana/mysqld-exporter 구성 |
+| 이 문서 (`docs/LOAD_TEST_REPORT.md`) | 부하테스트 전체 기록 |
+
+### `test/load-test` 브랜치에만 있는 것 (이 PR에는 미포함)
+
+| 위치 | 설명 |
+|---|---|
+| `loadtest/README.md` | 시나리오 실행 방법, 사전 준비, 모니터링 사용법 |
+| `loadtest/seed_k6_test_users.sql` | 테스트 전용 유저 50명 시딩 SQL |
+| `loadtest/k6/lib/` | JWT 발급(`auth.js`), 조건 페이로드 생성(`payloads.js`), 공통 설정(`config.js`) |
+| `loadtest/k6/scenarios/` | 00_smoke ~ 05_soak, 6개 시나리오 스크립트 |
+| `loadtest/monitoring/` | Prometheus 설정, Grafana 데이터소스 설정 |
+| `StubRouteService.java`, `RouteConfig.java`의 `ROUTE_MODE` 전환 로직 | 카카오 API 없이 통근 계산을 흉내내는 스텁 |
+| `RootConfig.java`의 HikariCP 풀 크기 실험 주석 | 6장 실험 근거를 코드 주석으로도 남긴 것 |
+| `docker-compose.yml`의 `monitoring` profile | Prometheus/Grafana/mysqld-exporter/grafana-renderer 구성 |
 
 ---
 
