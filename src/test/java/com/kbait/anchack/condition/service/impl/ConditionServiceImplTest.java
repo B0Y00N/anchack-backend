@@ -16,6 +16,8 @@ import com.kbait.anchack.condition.mapper.ConditionWeightMapper;
 import com.kbait.anchack.condition.mapper.PreferredHouseTypeMapper;
 import com.kbait.anchack.condition.mapper.UserConditionMapper;
 import com.kbait.anchack.recommendation.dto.ConditionBundle;
+import com.kbait.anchack.recommendation.dto.FilterFunnelStage;
+import com.kbait.anchack.recommendation.dto.RecommendationComputation;
 import com.kbait.anchack.recommendation.dto.RecommendationRow;
 import com.kbait.anchack.recommendation.mapper.RecommendationMapper;
 import com.kbait.anchack.recommendation.service.RecommendationService;
@@ -93,7 +95,7 @@ class ConditionServiceImplTest {
     @Test
     void 우선순위_3개는_3_2_1_가중치로_저장된다() {
         when(userConditionWriter.insert(any(), any(), any(), any(), any())).thenReturn(1L);
-        when(recommendationService.compute(any())).thenReturn(List.of());
+        when(recommendationService.compute(any())).thenReturn(computation(List.of()));
         when(recommendationService.persist(any(), any())).thenReturn(List.of());
         ArgumentCaptor<Map<String, BigDecimal>> captor = weightsCaptor();
 
@@ -118,7 +120,7 @@ class ConditionServiceImplTest {
     @Test
     void 사용자_조건_저장_후_계산과_반영을_순서대로_호출한다() {
         when(userConditionWriter.insert(any(), any(), any(), any(), any())).thenReturn(1L);
-        when(recommendationService.compute(any())).thenReturn(List.of());
+        when(recommendationService.compute(any())).thenReturn(computation(List.of()));
         when(recommendationService.persist(any(), any())).thenReturn(List.of());
 
         service.createAndRecommend(10L, validRequest(List.of("SAFETY")));
@@ -146,7 +148,7 @@ class ConditionServiceImplTest {
     @Test
     void 반영이_데드락_재시도를_다_써도_실패하면_방금_만든_조건을_정리하고_원래_예외를_그대로_던진다() {
         when(userConditionWriter.insert(any(), any(), any(), any(), any())).thenReturn(1L);
-        when(recommendationService.compute(any())).thenReturn(List.of());
+        when(recommendationService.compute(any())).thenReturn(computation(List.of()));
         DeadlockLoserDataAccessException persistFailure =
                 new DeadlockLoserDataAccessException("deadlock", null);
         when(recommendationService.persist(any(), any())).thenThrow(persistFailure);
@@ -212,13 +214,16 @@ class ConditionServiceImplTest {
                 .caution("caution")
                 .build();
         ArgumentCaptor<ConditionBundle> bundleCaptor = ArgumentCaptor.forClass(ConditionBundle.class);
-        when(recommendationService.compute(bundleCaptor.capture())).thenReturn(List.of(recommendationRow));
+        when(recommendationService.compute(bundleCaptor.capture())).thenReturn(computation(List.of(recommendationRow)));
         when(recommendationService.persist(eq(1L), any())).thenReturn(List.of(recommendationRow));
 
         UserConditionCreateResponse response = service.recompute(10L, 1L);
 
         assertThat(response.getConditionId()).isEqualTo(1L);
         assertThat(response.getRecommendations()).hasSize(1);
+        assertThat(response.getFilterFunnel())
+                .extracting(FilterFunnelStage::getStage)
+                .containsExactly("TOTAL", "FINAL");
 
         ConditionBundle bundle = bundleCaptor.getValue();
         assertThat(bundle.getConditionId()).isEqualTo(1L);
@@ -423,5 +428,15 @@ class ConditionServiceImplTest {
     @SuppressWarnings("unchecked")
     private ArgumentCaptor<Map<String, BigDecimal>> weightsCaptor() {
         return ArgumentCaptor.forClass(Map.class);
+    }
+
+    private RecommendationComputation computation(List<RecommendationRow> rows) {
+        List<FilterFunnelStage> filterFunnel = rows.isEmpty()
+                ? List.of(FilterFunnelStage.builder().stage("TOTAL").label("검색 대상").count(0).build())
+                : List.of(
+                        FilterFunnelStage.builder().stage("TOTAL").label("검색 대상").count(426).build(),
+                        FilterFunnelStage.builder().stage("FINAL").label("BEST").count(rows.size()).build());
+
+        return RecommendationComputation.builder().rows(rows).filterFunnel(filterFunnel).build();
     }
 }
