@@ -18,6 +18,8 @@ import com.kbait.anchack.condition.mapper.PreferredHouseTypeMapper;
 import com.kbait.anchack.condition.mapper.UserConditionMapper;
 import com.kbait.anchack.condition.service.ConditionService;
 import com.kbait.anchack.recommendation.dto.ConditionBundle;
+import com.kbait.anchack.recommendation.dto.FilterFunnelStage;
+import com.kbait.anchack.recommendation.dto.RecommendationComputation;
 import com.kbait.anchack.recommendation.dto.RecommendationRow;
 import com.kbait.anchack.recommendation.mapper.RecommendationMapper;
 import com.kbait.anchack.recommendation.service.RecommendationService;
@@ -127,11 +129,14 @@ public class ConditionServiceImpl implements ConditionService {
                 request.getGuCodes());
 
         List<RecommendationRow> recommendations;
+        List<FilterFunnelStage> filterFunnel;
 
         try {
             ConditionBundle bundle = toConditionBundle(conditionId, request, categoryWeights);
-            List<RecommendationRow> computed = recommendationService.compute(bundle);
-            recommendations = DeadlockRetry.execute(() -> recommendationService.persist(conditionId, computed));
+            RecommendationComputation computed = recommendationService.compute(bundle);
+            recommendations =
+                    DeadlockRetry.execute(() -> recommendationService.persist(conditionId, computed.getRows()));
+            filterFunnel = computed.getFilterFunnel();
         } catch (RuntimeException e) {
             cleanUpFailedCondition(conditionId, e);
             throw e;
@@ -142,7 +147,7 @@ public class ConditionServiceImpl implements ConditionService {
         // 대상이 아니다. try 안에 있으면 UserConditionWriter.delete()가 recommendations는
         // 못 지우면서 user_conditions만 지우려다 그 FK 때문에 실패하고, 그 실패를 삼키는
         // 사이 하위테이블(가중치 등)만 없는 반쯤 망가진 조건이 남는 문제가 있었다.
-        return toResponse(conditionId, recommendations);
+        return toResponse(conditionId, recommendations, filterFunnel);
     }
 
     /**
@@ -179,13 +184,13 @@ public class ConditionServiceImpl implements ConditionService {
         UserConditionRow condition = requireOwnedCondition(userId, conditionId);
         ConditionBundle bundle = toConditionBundleFromStoredCondition(condition);
 
-        List<RecommendationRow> computed = recommendationService.compute(bundle);
+        RecommendationComputation computed = recommendationService.compute(bundle);
         List<RecommendationRow> recommendations =
-                DeadlockRetry.execute(() -> recommendationService.persist(conditionId, computed));
+                DeadlockRetry.execute(() -> recommendationService.persist(conditionId, computed.getRows()));
 
         userConditionMapper.markLatest(conditionId);
 
-        return toResponse(conditionId, recommendations);
+        return toResponse(conditionId, recommendations, computed.getFilterFunnel());
     }
 
     private ConditionBundle toConditionBundleFromStoredCondition(UserConditionRow condition) {
@@ -409,13 +414,18 @@ public class ConditionServiceImpl implements ConditionService {
         return preferredHouseTypes.stream().map(code -> translateOrThrow(HOUSE_TYPE_CODES, code)).toList();
     }
 
-    private UserConditionCreateResponse toResponse(Long conditionId, List<RecommendationRow> recommendations) {
+    private UserConditionCreateResponse toResponse(
+            Long conditionId,
+            List<RecommendationRow> recommendations,
+            List<FilterFunnelStage> filterFunnel
+    ) {
         List<RecommendedDongResponse> responses = recommendations.stream()
                 .map(this::toRecommendedDongResponse)
                 .toList();
 
         return UserConditionCreateResponse.builder()
                 .conditionId(conditionId)
+                .filterFunnel(filterFunnel)
                 .recommendations(responses)
                 .build();
     }
