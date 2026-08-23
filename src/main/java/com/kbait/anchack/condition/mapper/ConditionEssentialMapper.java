@@ -10,4 +10,6 @@ public interface ConditionEssentialMapper {
     int insertBatch(@Param("rows") List<ConditionEssentialRow> rows);
 
     List<String> findCategoriesByConditionId(@Param("conditionId") Long conditionId);
+
+    int deleteByConditionId(@Param("conditionId") Long conditionId);
 }

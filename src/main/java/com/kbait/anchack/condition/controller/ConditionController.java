@@ -131,7 +131,9 @@ public class ConditionController {
     ) {
         Long userId = AuthenticatedUserResolver.requireUserId(httpRequest);
 
-        return ResponseEntity.ok(ApiResponse.success(conditionService.recompute(userId, conditionId)));
+        UserConditionCreateResponse response = conditionService.recompute(userId, conditionId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     /** JWT 필터가 request attribute에 저장한 사용자 ID를 조회한다. */

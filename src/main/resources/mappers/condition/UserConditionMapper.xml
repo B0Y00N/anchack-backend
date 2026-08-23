@@ -78,4 +78,9 @@
     WHERE condition_id = #{conditionId}
   </update>
 
+  <delete id="deleteByConditionId">
+    DELETE FROM user_conditions
+    WHERE condition_id = #{conditionId}
+  </delete>
+
 </mapper>

@@ -37,4 +37,8 @@ public interface UserConditionMapper {
     int markLatest(
         @Param("conditionId") Long conditionId
     );
+
+    int deleteByConditionId(
+        @Param("conditionId") Long conditionId
+    );
 }

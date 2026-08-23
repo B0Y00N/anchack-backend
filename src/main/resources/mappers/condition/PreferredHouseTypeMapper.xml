@@ -19,4 +19,9 @@
     WHERE condition_id = #{conditionId}
   </select>
 
+  <delete id="deleteByConditionId">
+    DELETE FROM preferred_house_types
+    WHERE condition_id = #{conditionId}
+  </delete>
+
 </mapper>

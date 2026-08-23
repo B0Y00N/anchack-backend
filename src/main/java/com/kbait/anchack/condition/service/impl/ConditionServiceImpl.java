@@ -4,10 +4,8 @@ import com.kbait.anchack.admindong.domain.AdminDong;
 import com.kbait.anchack.admindong.mapper.AdminDongMapper;
 import com.kbait.anchack.common.exception.ForbiddenException;
 import com.kbait.anchack.common.exception.NotFoundException;
-import com.kbait.anchack.condition.dto.ConditionEssentialRow;
-import com.kbait.anchack.condition.dto.ConditionGuRow;
+import com.kbait.anchack.common.util.DeadlockRetry;
 import com.kbait.anchack.condition.dto.ConditionWeightRow;
-import com.kbait.anchack.condition.dto.PreferredHouseTypeRow;
 import com.kbait.anchack.condition.dto.RecommendedDongResponse;
 import com.kbait.anchack.condition.dto.SavedConditionResponse;
 import com.kbait.anchack.condition.dto.UserConditionCreateRequest;
@@ -24,6 +22,8 @@ import com.kbait.anchack.recommendation.dto.RecommendationRow;
 import com.kbait.anchack.recommendation.mapper.RecommendationMapper;
 import com.kbait.anchack.recommendation.service.RecommendationService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,11 +38,28 @@ import java.util.stream.Collectors;
 /**
  * 프론트 영문 코드(예: "MONTHLY", "CONVENIENCE_STORE")를 DB의 한글 ENUM 값으로
  * 변환하면서 user_conditions + 하위 테이블을 저장하고, 바로 이어서
- * RecommendationService.generate()를 호출해 추천 결과까지 반환한다.
+ * RecommendationService.compute()/persist()를 호출해 추천 결과까지 반환한다.
+ *
+ * createAndRecommend()/recompute() 둘 다 의도적으로 @Transactional을 안 붙인다 - 저장
+ * (UserConditionWriter.insert, 트랜잭션 있음)과 계산(RecommendationService.compute, 카카오/
+ * OpenAI 외부 호출 포함, 트랜잭션 없음)과 반영(RecommendationService.persist, 트랜잭션 있음
+ * + 데드락 재시도)이 서로 다른 트랜잭션 경계를 가져야 하기 때문이다. 이 메서드 자체에
+ * @Transactional을 붙이면 그 안의 모든 호출이 하나의 트랜잭션/커넥션으로 묶여버려서,
+ * persist()가 데드락으로 재시도될 때 이미 끝난 외부 API 호출까지 다시 실행되는 문제로
+ * 되돌아간다.
+ *
+ * createAndRecommend()는 저장이 이미 별도 트랜잭션으로 커밋된 뒤 계산/반영이 실패할 수
+ * 있어서, 그 경우 방금 만든 조건을 UserConditionWriter.delete()로 보상 삭제한다 - 그래야
+ * "추천 결과 없는 조건"이 남지 않고, 예전(모든 단계가 한 트랜잭션이던 시절)과 동일하게
+ * 전부 성공 아니면 전부 없음이 유지된다. recompute()는 이 처리가 필요 없다 - 기존
+ * recommendations를 DELETE+INSERT로 교체하는 persist()가 실패하면 그 자체가
+ * @Transactional이라 기존 값이 그대로 롤백되어 남기 때문에 애초에 고아 상태가 생기지 않는다.
  */
 @Service
 @RequiredArgsConstructor
 public class ConditionServiceImpl implements ConditionService {
+
+    private static final Logger log = LoggerFactory.getLogger(ConditionServiceImpl.class);
 
     private static final Map<String, String> RENTAL_TYPE_CODES = Map.of(
             "MONTHLY", "월세",
@@ -92,28 +109,58 @@ public class ConditionServiceImpl implements ConditionService {
     private final ConditionEssentialMapper conditionEssentialMapper;
     private final PreferredHouseTypeMapper preferredHouseTypeMapper;
     private final ConditionGuMapper conditionGuMapper;
+    private final UserConditionWriter userConditionWriter;
     private final RecommendationService recommendationService;
     private final RecommendationMapper recommendationMapper;
     private final AdminDongMapper adminDongMapper;
 
     @Override
-    @Transactional
     public UserConditionCreateResponse createAndRecommend(Long userId, UserConditionCreateRequest request) {
         Map<String, BigDecimal> categoryWeights = buildCategoryWeights(request.getPriorityCategories());
-
         UserConditionRow userCondition = buildUserConditionRow(userId, request);
-        userConditionMapper.insert(userCondition);
-        Long conditionId = userCondition.getConditionId();
 
-        insertWeights(conditionId, categoryWeights);
-        insertEssentials(conditionId, request.getEssentialCategories());
-        insertHouseTypes(conditionId, request.getPreferredHouseTypes());
-        insertGus(conditionId, request.getGuCodes());
+        Long conditionId = userConditionWriter.insert(
+                userCondition,
+                categoryWeights,
+                translateEssentials(request.getEssentialCategories()),
+                translateHouseTypes(request.getPreferredHouseTypes()),
+                request.getGuCodes());
 
-        ConditionBundle bundle = toConditionBundle(conditionId, request, categoryWeights);
-        List<RecommendationRow> recommendations = recommendationService.generate(bundle);
+        List<RecommendationRow> recommendations;
 
+        try {
+            ConditionBundle bundle = toConditionBundle(conditionId, request, categoryWeights);
+            List<RecommendationRow> computed = recommendationService.compute(bundle);
+            recommendations = DeadlockRetry.execute(() -> recommendationService.persist(conditionId, computed));
+        } catch (RuntimeException e) {
+            cleanUpFailedCondition(conditionId, e);
+            throw e;
+        }
+
+        // toResponse()는 DB 호출이 없는 순수 변환이라 일부러 try 밖에 둔다 - persist()가 이미
+        // 성공해 recommendations/recommendation_scores가 커밋된 뒤라, 여기서 예외가 나도 정리
+        // 대상이 아니다. try 안에 있으면 UserConditionWriter.delete()가 recommendations는
+        // 못 지우면서 user_conditions만 지우려다 그 FK 때문에 실패하고, 그 실패를 삼키는
+        // 사이 하위테이블(가중치 등)만 없는 반쯤 망가진 조건이 남는 문제가 있었다.
         return toResponse(conditionId, recommendations);
+    }
+
+    /**
+     * 계산/반영 실패로 추천 결과 없이 남게 된 조건을 지운다. 삭제 자체가 실패해도 원래
+     * 예외(e)를 가리지 않도록 별도로 잡아 로그만 남기고, 항상 원래 예외를 그대로 던진다.
+     */
+    private void cleanUpFailedCondition(Long conditionId, RuntimeException cause) {
+        try {
+            userConditionWriter.delete(conditionId);
+        } catch (RuntimeException cleanupException) {
+            log.error(
+                    "조건 생성 실패 후 정리(삭제)까지 실패했습니다: conditionId={} - 추천 결과 없는 조건이 남았을 수 있습니다.",
+                    conditionId, cleanupException);
+
+            return;
+        }
+
+        log.warn("조건 생성 중 추천 계산/반영이 실패해 conditionId={}를 정리했습니다.", conditionId, cause);
     }
 
     /**
@@ -121,17 +168,21 @@ public class ConditionServiceImpl implements ConditionService {
      * user_conditions/condition_weights/condition_essentials/preferred_house_types/
      * condition_gus에 이미 DB 네이티브 형식(한글 ENUM, 만원 단위 등)으로 저장돼 있어
      * createAndRecommend와 달리 프론트 영문 코드 변환이 필요 없다. RecommendationService.
-     * generate()가 conditionId 기준으로 기존 recommendations를 DELETE 후 다시 INSERT하는
+     * persist()가 conditionId 기준으로 기존 recommendations를 DELETE 후 다시 INSERT하는
      * 방식이라 신규 생성과 동일한 경로로 재계산 결과를 그대로 덮어쓸 수 있다. 재계산이
      * 끝나면 is_latest를 TRUE로 되돌린다(FALSE로 바꾸는 로직은 아직 없다 - 추후 작업).
+     * markLatest는 persist()가 성공한 뒤에만 실행된다 - persist()가 재시도를 다 써버리고
+     * 예외를 던지면 그 지점에서 그대로 전파되어 markLatest는 호출되지 않는다.
      */
     @Override
-    @Transactional
     public UserConditionCreateResponse recompute(Long userId, Long conditionId) {
         UserConditionRow condition = requireOwnedCondition(userId, conditionId);
-
         ConditionBundle bundle = toConditionBundleFromStoredCondition(condition);
-        List<RecommendationRow> recommendations = recommendationService.generate(bundle);
+
+        List<RecommendationRow> computed = recommendationService.compute(bundle);
+        List<RecommendationRow> recommendations =
+                DeadlockRetry.execute(() -> recommendationService.persist(conditionId, computed));
+
         userConditionMapper.markLatest(conditionId);
 
         return toResponse(conditionId, recommendations);
@@ -318,60 +369,6 @@ public class ConditionServiceImpl implements ConditionService {
         if (!VALID_PRIORITY_CATEGORIES.contains(category)) {
             throw new IllegalArgumentException("지원하지 않는 값입니다: " + category);
         }
-    }
-
-    private void insertWeights(Long conditionId, Map<String, BigDecimal> categoryWeights) {
-        List<ConditionWeightRow> rows = categoryWeights.entrySet().stream()
-                .map(entry -> ConditionWeightRow.builder()
-                        .conditionId(conditionId)
-                        .category(entry.getKey())
-                        .importance(entry.getValue())
-                        .build())
-                .toList();
-
-        conditionWeightMapper.insertBatch(rows);
-    }
-
-    private void insertEssentials(Long conditionId, List<String> essentialCategories) {
-        if (essentialCategories == null || essentialCategories.isEmpty()) {
-            return;
-        }
-
-        List<ConditionEssentialRow> rows = essentialCategories.stream()
-                .map(code -> ConditionEssentialRow.builder()
-                        .conditionId(conditionId)
-                        .category(translateOrThrow(ESSENTIAL_CATEGORY_CODES, code))
-                        .build())
-                .toList();
-
-        conditionEssentialMapper.insertBatch(rows);
-    }
-
-    private void insertHouseTypes(Long conditionId, List<String> preferredHouseTypes) {
-        if (preferredHouseTypes == null || preferredHouseTypes.isEmpty()) {
-            return;
-        }
-
-        List<PreferredHouseTypeRow> rows = preferredHouseTypes.stream()
-                .map(code -> PreferredHouseTypeRow.builder()
-                        .conditionId(conditionId)
-                        .houseType(translateOrThrow(HOUSE_TYPE_CODES, code))
-                        .build())
-                .toList();
-
-        preferredHouseTypeMapper.insertBatch(rows);
-    }
-
-    private void insertGus(Long conditionId, List<String> guCodes) {
-        if (guCodes == null || guCodes.isEmpty()) {
-            return;
-        }
-
-        List<ConditionGuRow> rows = guCodes.stream()
-                .map(guCode -> ConditionGuRow.builder().conditionId(conditionId).guCode(guCode).build())
-                .toList();
-
-        conditionGuMapper.insertBatch(rows);
     }
 
     private ConditionBundle toConditionBundle(

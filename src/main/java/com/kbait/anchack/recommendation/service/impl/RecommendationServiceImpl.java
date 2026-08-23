@@ -27,14 +27,15 @@ import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 
 /**
- * 하드필터 → 소프트 스코어링 → 상위 5개 추출 → reason/caution 생성 →
- * recommendations/recommendation_scores DELETE 후 INSERT까지 이어붙이는 진입점.
+ * 하드필터 → 소프트 스코어링 → 상위 5개 추출 → reason/caution 생성(compute) →
+ * recommendations/recommendation_scores DELETE 후 INSERT(persist)까지 이어붙이는 진입점.
+ * compute와 persist를 나눈 이유는 클래스 상단 RecommendationService 인터페이스 참고 -
+ * 요약하면 데드락 재시도가 persist만 다시 실행하고, compute(카카오/OpenAI 호출)는
+ * 재시도 때마다 중복 실행되지 않게 하기 위해서다.
  *
  * reason/caution 생성(OpenAI 프록시 호출)은 후보별로 순차 호출하면 read-timeout이 걸릴 때마다
  * 누적되어(최악의 경우 TOP_N * read-timeout) 사용자가 오래 기다리게 되므로 병렬로 호출한다.
- * admin_dong 이름 조회(DB) 등 트랜잭션에 묶인 작업은 병렬화 대상에서 제외하고 메인 스레드에서
- * 미리 끝내둔다 - @Transactional이 스레드 하나에 바인딩되므로 다른 스레드에서 매퍼를 호출하면
- * 같은 트랜잭션/커넥션을 타지 않는다.
+ * admin_dong 이름 조회(DB) 등은 병렬화 대상에서 제외하고 메인 스레드에서 미리 끝내둔다.
  */
 @Service
 @RequiredArgsConstructor
@@ -49,9 +50,14 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final RecommendationScoreMapper recommendationScoreMapper;
     private final AdminDongMapper adminDongMapper;
 
+    /**
+     * 의도적으로 @Transactional을 안 붙인다 - hardFilterService.filter()가 destAddress가
+     * 있으면 카카오 API를 호출하는데(CommuteFilter), 트랜잭션을 걸면 그 네트워크 호출이
+     * 끝날 때까지 DB 커넥션을 붙잡아두게 된다. 여기서 나가는 개별 매퍼 조회들은 각자
+     * 자기 완결적인 SELECT라 공유 트랜잭션 없이 실행돼도 문제없다.
+     */
     @Override
-    @Transactional
-    public List<RecommendationRow> generate(ConditionBundle condition) {
+    public List<RecommendationRow> compute(ConditionBundle condition) {
         List<RecommendationCandidate> candidates = hardFilterService.filter(condition);
         List<RankedRecommendation> ranked = recommendationScoreCalculator.calculate(candidates, condition);
         List<RankedRecommendation> topRanked = ranked.stream().limit(TOP_N).toList();
@@ -65,11 +71,15 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .toList();
         List<GeneratedReason> reasons = generateReasonsInParallel(contexts);
 
-        List<RecommendationRow> rows = IntStream.range(0, topRanked.size())
+        return IntStream.range(0, topRanked.size())
                 .mapToObj(i -> toRow(topRanked.get(i), adminDongs.get(i), reasons.get(i), condition.getConditionId()))
                 .toList();
+    }
 
-        replaceRecommendations(condition.getConditionId(), rows);
+    @Override
+    @Transactional
+    public List<RecommendationRow> persist(Long conditionId, List<RecommendationRow> rows) {
+        replaceRecommendations(conditionId, rows);
         replaceRecommendationScores(rows);
 
         return rows;

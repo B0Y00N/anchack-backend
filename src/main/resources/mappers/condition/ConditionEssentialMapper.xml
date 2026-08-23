@@ -19,4 +19,9 @@
     WHERE condition_id = #{conditionId}
   </select>
 
+  <delete id="deleteByConditionId">
+    DELETE FROM condition_essentials
+    WHERE condition_id = #{conditionId}
+  </delete>
+
 </mapper>
