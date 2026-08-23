@@ -1,6 +1,7 @@
 package com.kbait.anchack.recommendation.service;
 
 import com.kbait.anchack.recommendation.dto.ConditionBundle;
+import com.kbait.anchack.recommendation.dto.RecommendationComputation;
 import com.kbait.anchack.recommendation.dto.RecommendationRow;
 
 import java.util.List;
@@ -12,9 +13,10 @@ public interface RecommendationService {
      * 순수 계산만 한다. 카카오 통근 API·OpenAI reason 생성 같은 외부 호출이 여기서
      * 일어나는데, 이 메서드 자체는 트랜잭션을 열지 않는다 - DB 커넥션을 네트워크 호출
      * 동안 붙잡아두지 않기 위해서다(호출자도 이 메서드를 재시도해서는 안 된다 - 외부
-     * 호출이 중복 실행된다).
+     * 호출이 중복 실행된다). 반환값에는 추천 행뿐 아니라 하드필터+최종 추출 각 단계를
+     * 통과한 후보 수(filterFunnel, P3)도 같이 담긴다.
      */
-    List<RecommendationRow> compute(ConditionBundle condition);
+    RecommendationComputation compute(ConditionBundle condition);
 
     /**
      * compute()가 만든 결과를 recommendations/recommendation_scores에 DELETE 후 INSERT로

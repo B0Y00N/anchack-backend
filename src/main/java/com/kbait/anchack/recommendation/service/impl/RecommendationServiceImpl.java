@@ -5,9 +5,12 @@ import com.kbait.anchack.admindong.mapper.AdminDongMapper;
 import com.kbait.anchack.recommendation.client.RecommendationReasonClient;
 import com.kbait.anchack.recommendation.dto.CategoryScoreBreakdown;
 import com.kbait.anchack.recommendation.dto.ConditionBundle;
+import com.kbait.anchack.recommendation.dto.FilterFunnelStage;
 import com.kbait.anchack.recommendation.dto.GeneratedReason;
+import com.kbait.anchack.recommendation.dto.HardFilterResult;
 import com.kbait.anchack.recommendation.dto.RankedRecommendation;
 import com.kbait.anchack.recommendation.dto.RecommendationCandidate;
+import com.kbait.anchack.recommendation.dto.RecommendationComputation;
 import com.kbait.anchack.recommendation.dto.RecommendationReasonContext;
 import com.kbait.anchack.recommendation.dto.RecommendationRow;
 import com.kbait.anchack.recommendation.dto.RecommendationScoreRow;
@@ -20,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -57,8 +61,9 @@ public class RecommendationServiceImpl implements RecommendationService {
      * 자기 완결적인 SELECT라 공유 트랜잭션 없이 실행돼도 문제없다.
      */
     @Override
-    public List<RecommendationRow> compute(ConditionBundle condition) {
-        List<RecommendationCandidate> candidates = hardFilterService.filter(condition);
+    public RecommendationComputation compute(ConditionBundle condition) {
+        HardFilterResult hardFilterResult = hardFilterService.filter(condition);
+        List<RecommendationCandidate> candidates = hardFilterResult.getCandidates();
         List<RankedRecommendation> ranked = recommendationScoreCalculator.calculate(candidates, condition);
         List<RankedRecommendation> topRanked = ranked.stream().limit(TOP_N).toList();
 
@@ -71,9 +76,29 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .toList();
         List<GeneratedReason> reasons = generateReasonsInParallel(contexts);
 
-        return IntStream.range(0, topRanked.size())
+        List<RecommendationRow> rows = IntStream.range(0, topRanked.size())
                 .mapToObj(i -> toRow(topRanked.get(i), adminDongs.get(i), reasons.get(i), condition.getConditionId()))
                 .toList();
+
+        return RecommendationComputation.builder()
+                .rows(rows)
+                .filterFunnel(toFinalFunnel(hardFilterResult, rows))
+                .build();
+    }
+
+    /**
+     * 하드필터 단계 퍼널에 FINAL(최종 5개 추출) 단계를 이어붙인다. 후보가 하드필터 단계에서
+     * 이미 0개가 됐으면(candidates 비어있음) FINAL 단계도 실행된 적 없는 셈이라 추가하지
+     * 않는다 - "실행되지 않은 단계"와 "실행됐지만 0개인 단계"를 구분하기 위함이다.
+     */
+    private List<FilterFunnelStage> toFinalFunnel(HardFilterResult hardFilterResult, List<RecommendationRow> rows) {
+        List<FilterFunnelStage> funnel = new ArrayList<>(hardFilterResult.getFilterFunnel());
+
+        if (!hardFilterResult.getCandidates().isEmpty()) {
+            funnel.add(FilterFunnelStage.builder().stage("FINAL").label("BEST").count(rows.size()).build());
+        }
+
+        return funnel;
     }
 
     @Override
