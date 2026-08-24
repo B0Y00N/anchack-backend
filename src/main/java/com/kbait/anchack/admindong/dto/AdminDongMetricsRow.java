@@ -13,6 +13,7 @@ public class AdminDongMetricsRow {
     private Long adminDongId;
     private BigDecimal safetyScore;
     private BigDecimal cctvPer1000;
+    private BigDecimal cctvPer100m;
     private BigDecimal crimeRate;
     private Integer hospitalCount;
     private Integer departmentStoreCount;
