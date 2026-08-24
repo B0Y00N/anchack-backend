@@ -32,7 +32,9 @@ public class JwtAuthenticationFilter implements Filter {
     private JwtTokenProvider jwtTokenProvider;
 
     @Override
-    public void init(FilterConfig filterConfig) throws ServletException {
+    public void init(FilterConfig filterConfig)
+        throws ServletException {
+
         this.jwtTokenProvider =
             WebApplicationContextUtils
                 .getRequiredWebApplicationContext(
@@ -48,23 +50,36 @@ public class JwtAuthenticationFilter implements Filter {
         FilterChain chain
     ) throws IOException, ServletException {
 
-        HttpServletRequest request = (HttpServletRequest) req;
-        HttpServletResponse response = (HttpServletResponse) res;
+        HttpServletRequest request =
+            (HttpServletRequest) req;
 
+        HttpServletResponse response =
+            (HttpServletResponse) res;
+
+        /*
+         * CORS Preflight 요청은 인증 대상이 아니다.
+         * 반드시 JWT 인증 로직보다 먼저 통과시킨다.
+         */
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_OK);
             chain.doFilter(request, response);
             return;
         }
 
         String requestPath = getRequestPath(request);
 
+        /*
+         * 공개 API는 토큰이 없어도 접근 가능하다.
+         * 토큰이 있으면 선택적으로 사용자 정보를 설정한다.
+         */
         if (isWhitelisted(requestPath, request.getMethod())) {
             trySetOptionalAuthenticatedUser(request);
             chain.doFilter(request, response);
             return;
         }
 
-        String authorizationHeader = request.getHeader("Authorization");
+        String authorizationHeader =
+            request.getHeader("Authorization");
 
         if (authorizationHeader == null
             || !authorizationHeader.startsWith("Bearer ")) {
@@ -76,7 +91,8 @@ public class JwtAuthenticationFilter implements Filter {
             return;
         }
 
-        String token = authorizationHeader.substring(7).trim();
+        String token =
+            authorizationHeader.substring(7).trim();
 
         if (token.isEmpty()) {
             sendUnauthorizedResponse(
@@ -85,8 +101,6 @@ public class JwtAuthenticationFilter implements Filter {
             );
             return;
         }
-
-        Long userId;
 
         try {
             if (!jwtTokenProvider.validateToken(token)) {
@@ -97,17 +111,21 @@ public class JwtAuthenticationFilter implements Filter {
                 return;
             }
 
-            userId = jwtTokenProvider.getUserId(token);
+            Long userId =
+                jwtTokenProvider.getUserId(token);
+
+            request.setAttribute(
+                USER_ID_ATTRIBUTE,
+                userId
+            );
 
         } catch (Exception e) {
             sendUnauthorizedResponse(
                 response,
-                "만료되었거나 유효하지 않은 인증 토큰입니다."
+                "만료되었거나 유효하지 않은 토큰입니다."
             );
             return;
         }
-
-        request.setAttribute(USER_ID_ATTRIBUTE, userId);
 
         chain.doFilter(request, response);
     }
@@ -115,14 +133,16 @@ public class JwtAuthenticationFilter implements Filter {
     private void trySetOptionalAuthenticatedUser(
         HttpServletRequest request
     ) {
-        String authorizationHeader = request.getHeader("Authorization");
+        String authorizationHeader =
+            request.getHeader("Authorization");
 
         if (authorizationHeader == null
             || !authorizationHeader.startsWith("Bearer ")) {
             return;
         }
 
-        String token = authorizationHeader.substring(7).trim();
+        String token =
+            authorizationHeader.substring(7).trim();
 
         if (token.isEmpty()) {
             return;
@@ -130,25 +150,38 @@ public class JwtAuthenticationFilter implements Filter {
 
         try {
             if (jwtTokenProvider.validateToken(token)) {
+                Long userId =
+                    jwtTokenProvider.getUserId(token);
+
                 request.setAttribute(
                     USER_ID_ATTRIBUTE,
-                    jwtTokenProvider.getUserId(token)
+                    userId
                 );
             }
         } catch (Exception ignored) {
-            // 공개 API이므로 잘못된 토큰은 비로그인 사용자로 처리한다.
+            /*
+             * 공개 API이므로 잘못된 토큰은
+             * 비로그인 사용자로 처리한다.
+             */
         }
     }
 
-    private String getRequestPath(HttpServletRequest request) {
-        String requestUri = request.getRequestURI();
-        String contextPath = request.getContextPath();
+    private String getRequestPath(
+        HttpServletRequest request
+    ) {
+        String requestUri =
+            request.getRequestURI();
+
+        String contextPath =
+            request.getContextPath();
 
         if (contextPath != null
             && !contextPath.isEmpty()
             && requestUri.startsWith(contextPath)) {
 
-            return requestUri.substring(contextPath.length());
+            return requestUri.substring(
+                contextPath.length()
+            );
         }
 
         return requestUri;
@@ -171,9 +204,17 @@ public class JwtAuthenticationFilter implements Filter {
             return true;
         }
 
-        return requestPath.equals("/api/reviews")
-            || REVIEW_DETAIL_PATH.matcher(requestPath).matches()
-            || requestPath.equals("/api/review-categories");
+        if (requestPath.equals("/api/reviews")) {
+            return true;
+        }
+
+        if (REVIEW_DETAIL_PATH.matcher(requestPath).matches()) {
+            return true;
+        }
+
+        return requestPath.equals(
+            "/api/review-categories"
+        );
     }
 
     private void sendUnauthorizedResponse(
@@ -181,11 +222,17 @@ public class JwtAuthenticationFilter implements Filter {
         String message
     ) throws IOException {
 
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setCharacterEncoding("UTF-8");
-        response.setContentType("application/json;charset=UTF-8");
+        response.setStatus(
+            HttpServletResponse.SC_UNAUTHORIZED
+        );
 
-        String escapedMessage = message.replace("\"", "\\\"");
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType(
+            "application/json;charset=UTF-8"
+        );
+
+        String escapedMessage =
+            message.replace("\"", "\\\"");
 
         response.getWriter().write(
             "{\"message\":\""
@@ -196,5 +243,6 @@ public class JwtAuthenticationFilter implements Filter {
 
     @Override
     public void destroy() {
+        // No-op
     }
 }
