@@ -5,6 +5,7 @@ import com.kbait.anchack.admindong.dto.AdminDongMetricsRow;
 import com.kbait.anchack.admindong.dto.RentalAmountRow;
 import com.kbait.anchack.admindong.dto.response.AdminDongDetailResponse;
 import com.kbait.anchack.admindong.dto.response.AdminDongResponse;
+import com.kbait.anchack.admindong.dto.response.DongReviewStatsResponse;
 import com.kbait.anchack.admindong.dto.response.PlaceResponse;
 import com.kbait.anchack.admindong.dto.response.RentDistBucket;
 import com.kbait.anchack.admindong.mapper.AdminDongDetailMapper;
@@ -118,25 +119,38 @@ public class AdminDongService {
         }
 
         Map<Long, AdminDong> adminDongsById = adminDongMapper.findByIds(adminDongIds).stream()
-                .collect(Collectors.toMap(AdminDong::getAdminDongId, Function.identity()));
+            .collect(Collectors.toMap(AdminDong::getAdminDongId, Function.identity()));
 
         Map<Long, AdminDongMetricsRow> metricsById = adminDongDetailMapper.findMetricsByIds(adminDongIds).stream()
-                .collect(Collectors.toMap(AdminDongMetricsRow::getAdminDongId, Function.identity()));
+            .collect(Collectors.toMap(AdminDongMetricsRow::getAdminDongId, Function.identity()));
 
         Map<Long, List<RentalAmountRow>> rentalRowsById =
-                rentalTransactionMapper.findAmountsByAdminDongIdsAndRentalType(adminDongIds, MONTHLY_RENT_TYPE).stream()
-                        .collect(Collectors.groupingBy(RentalAmountRow::getAdminDongId));
+            rentalTransactionMapper.findAmountsByAdminDongIdsAndRentalType(adminDongIds, MONTHLY_RENT_TYPE).stream()
+                .collect(Collectors.groupingBy(RentalAmountRow::getAdminDongId));
 
         List<Place> policeStations = placeMapper.findByCategory(POLICE_CATEGORY);
 
         return adminDongIds.stream()
-                .filter(adminDongsById::containsKey)
-                .map(adminDongId -> toDetailResponse(
-                        adminDongsById.get(adminDongId),
-                        metricsById.get(adminDongId),
-                        rentalRowsById.getOrDefault(adminDongId, List.of()),
-                        policeStations))
-                .toList();
+            .filter(adminDongsById::containsKey)
+            .map(adminDongId -> toDetailResponse(
+                adminDongsById.get(adminDongId),
+                metricsById.get(adminDongId),
+                rentalRowsById.getOrDefault(adminDongId, List.of()),
+                policeStations))
+            .toList();
+    }
+
+    /**
+     * 구에 속한 모든 행정동의 리뷰 개수/평균 별점을 한 번에 조회한다.
+     * (동네 둘러보기 - 구 선택 시 동 목록에 리뷰 요약을 보여주는 용도)
+     */
+    @Transactional(readOnly = true)
+    public List<DongReviewStatsResponse> getReviewStatsByGuName(String guName) {
+        if (guName == null || guName.trim().isEmpty()) {
+            throw new IllegalArgumentException("구 이름이 필요합니다.");
+        }
+
+        return adminDongMapper.findReviewStatsByGuName(guName.trim());
     }
 
     /**
@@ -151,12 +165,12 @@ public class AdminDongService {
         }
 
         List<String> validatedCategories = categories == null
-                ? null
-                : categories.stream().map(this::toValidCategoryName).toList();
+            ? null
+            : categories.stream().map(this::toValidCategoryName).toList();
 
         return placeMapper.findByAdminDongIdAndCategories(adminDongId, validatedCategories).stream()
-                .map(this::toPlaceResponse)
-                .toList();
+            .map(this::toPlaceResponse)
+            .toList();
     }
 
     private String toValidCategoryName(String category) {
@@ -169,25 +183,25 @@ public class AdminDongService {
 
     private PlaceResponse toPlaceResponse(Place place) {
         return PlaceResponse.builder()
-                .placeId(place.getId())
-                .category(place.getCategory())
-                .name(place.getName())
-                .lat(place.getLatitude())
-                .lng(place.getLongitude())
-                .build();
+            .placeId(place.getId())
+            .category(place.getCategory())
+            .name(place.getName())
+            .lat(place.getLatitude())
+            .lng(place.getLongitude())
+            .build();
     }
 
     private AdminDongDetailResponse toDetailResponse(
-            AdminDong adminDong,
-            AdminDongMetricsRow metrics,
-            List<RentalAmountRow> rentalRows,
-            List<Place> policeStations
+        AdminDong adminDong,
+        AdminDongMetricsRow metrics,
+        List<RentalAmountRow> rentalRows,
+        List<Place> policeStations
     ) {
         List<Long> deposits = rentalRows.stream().map(RentalAmountRow::getDepositAmount).sorted().toList();
         List<Long> monthlyRents = rentalRows.stream()
-                .map(row -> (long) row.getMonthlyRentAmount())
-                .sorted()
-                .toList();
+            .map(row -> (long) row.getMonthlyRentAmount())
+            .sorted()
+            .toList();
 
         return AdminDongDetailResponse.builder()
                 .adminDongId(adminDong.getAdminDongId())
@@ -252,18 +266,18 @@ public class AdminDongService {
 
     private String nearestPoliceDescription(AdminDong adminDong, List<Place> policeStations) {
         return policeStations.stream()
-                .min(Comparator.comparingDouble(place -> haversineDistanceMeters(
-                        adminDong.getLatitude(), adminDong.getLongitude(),
-                        place.getLatitude(), place.getLongitude())))
-                .map(nearest -> {
-                    double distance = haversineDistanceMeters(
-                            adminDong.getLatitude(), adminDong.getLongitude(),
-                            nearest.getLatitude(), nearest.getLongitude());
-                    long walkMinutes = Math.max(1, Math.round(distance / WALKING_SPEED_METERS_PER_MINUTE));
+            .min(Comparator.comparingDouble(place -> haversineDistanceMeters(
+                adminDong.getLatitude(), adminDong.getLongitude(),
+                place.getLatitude(), place.getLongitude())))
+            .map(nearest -> {
+                double distance = haversineDistanceMeters(
+                    adminDong.getLatitude(), adminDong.getLongitude(),
+                    nearest.getLatitude(), nearest.getLongitude());
+                long walkMinutes = Math.max(1, Math.round(distance / WALKING_SPEED_METERS_PER_MINUTE));
 
-                    return nearest.getName() + " (도보 " + walkMinutes + "분)";
-                })
-                .orElse(null);
+                return nearest.getName() + " (도보 " + walkMinutes + "분)";
+            })
+            .orElse(null);
     }
 
     private double haversineDistanceMeters(BigDecimal lat1, BigDecimal lng1, BigDecimal lat2, BigDecimal lng2) {
@@ -273,7 +287,7 @@ public class AdminDongService {
         double deltaLng = Math.toRadians(lng2.doubleValue() - lng1.doubleValue());
 
         double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
-                + Math.cos(radLat1) * Math.cos(radLat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+            + Math.cos(radLat1) * Math.cos(radLat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
         return EARTH_RADIUS_METERS * c;
