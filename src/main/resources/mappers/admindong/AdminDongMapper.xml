@@ -77,9 +77,9 @@
   <select id="findAllCodeMappings"
           resultMap="adminDongResultMap">
     SELECT
-      admin_dong_id,
-      gu_code,
-      dong_code
+    admin_dong_id,
+    gu_code,
+    dong_code
     FROM admin_dongs
   </select>
 
@@ -92,6 +92,38 @@
     <foreach collection="adminDongIds" item="adminDongId" open="(" separator="," close=")">
       #{adminDongId}
     </foreach>
+
+  </select>
+
+  <resultMap id="dongReviewStatsResultMap"
+             type="com.kbait.anchack.admindong.dto.response.DongReviewStatsResponse">
+
+    <result property="dongName"
+            column="dong_name"/>
+
+    <result property="reviewCount"
+            column="review_count"/>
+
+    <result property="avgRating"
+            column="avg_rating"/>
+
+  </resultMap>
+
+  <select id="findReviewStatsByGuName"
+          resultMap="dongReviewStatsResultMap">
+
+    SELECT
+    ad.name AS dong_name,
+    COUNT(r.review_id) AS review_count,
+    AVG(r.overall_rating) AS avg_rating
+    FROM admin_dongs ad
+    INNER JOIN gus g
+    ON g.gu_code = ad.gu_code
+    LEFT JOIN reviews r
+    ON r.admin_dong_id = ad.admin_dong_id
+    AND r.status = 'ACTIVE'
+    WHERE g.name = #{guName}
+    GROUP BY ad.admin_dong_id, ad.name
 
   </select>
 

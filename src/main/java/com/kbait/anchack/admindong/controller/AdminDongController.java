@@ -2,6 +2,7 @@ package com.kbait.anchack.admindong.controller;
 
 import com.kbait.anchack.admindong.dto.response.AdminDongDetailResponse;
 import com.kbait.anchack.admindong.dto.response.AdminDongResponse;
+import com.kbait.anchack.admindong.dto.response.DongReviewStatsResponse;
 import com.kbait.anchack.admindong.dto.response.PlaceResponse;
 import com.kbait.anchack.admindong.service.AdminDongService;
 import com.kbait.anchack.common.response.ApiResponse;
@@ -55,6 +56,20 @@ public class AdminDongController {
         @RequestParam List<Long> ids
     ) {
         List<AdminDongDetailResponse> response = adminDongService.getAdminDongDetails(ids);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * 동네 둘러보기 - 구 선택 시 동 목록에 보여줄 리뷰 개수/평균 별점 일괄 조회.
+     *
+     * GET /api/admin-dongs/review-stats?guName=은평구
+     */
+    @GetMapping("/review-stats")
+    public ResponseEntity<ApiResponse<List<DongReviewStatsResponse>>> getReviewStats(
+        @RequestParam String guName
+    ) {
+        List<DongReviewStatsResponse> response = adminDongService.getReviewStatsByGuName(guName);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
