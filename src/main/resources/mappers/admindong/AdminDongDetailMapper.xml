@@ -37,6 +37,10 @@
         THEN ROUND(sm.cctv_count / (ad.dong_population / 1000), 2)
         ELSE NULL
       END AS cctvPer1000,
+      CASE WHEN ad.dong_area > 0
+        THEN ROUND(sm.cctv_count / (ad.dong_area * 100), 2)
+        ELSE NULL
+      END AS cctvPer100m,
       latest_crime.crime_rate AS crimeRate,
       hm.hospital_count AS hospitalCount,
       lcm.department_store_count AS departmentStoreCount,

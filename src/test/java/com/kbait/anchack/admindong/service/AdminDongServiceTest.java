@@ -81,6 +81,7 @@ class AdminDongServiceTest {
         assertThat(response.getDongName()).isEqualTo("증산동");
         assertThat(response.getSafetyScore()).isEqualByComparingTo("78.00");
         assertThat(response.getCctv()).isEqualByComparingTo("2.30");
+        assertThat(response.getCctvPer100m()).isEqualByComparingTo("0.85");
         assertThat(response.getCrimeRate()).isEqualByComparingTo("3.20");
         assertThat(response.getHospitals()).isEqualTo(3);
         assertThat(response.getDepartment()).isEqualTo(0);
@@ -245,6 +246,7 @@ class AdminDongServiceTest {
         row.setAdminDongId(adminDongId);
         row.setSafetyScore(new BigDecimal("78.00"));
         row.setCctvPer1000(new BigDecimal("2.30"));
+        row.setCctvPer100m(new BigDecimal("0.85"));
         row.setCrimeRate(new BigDecimal("3.20"));
         row.setHospitalCount(3);
         row.setDepartmentStoreCount(0);

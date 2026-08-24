@@ -22,6 +22,7 @@ public class AdminDongDetailResponse {
     private List<RentDistBucket> rentDist;
 
     private BigDecimal cctv;
+    private BigDecimal cctvPer100m;
     private String police;
     private BigDecimal crimeRate;
     private BigDecimal safetyScore;

@@ -199,6 +199,7 @@ public class AdminDongService {
                 .monthly(median(monthlyRents))
                 .rentDist(toRentDist(monthlyRents))
                 .cctv(metrics == null ? null : metrics.getCctvPer1000())
+                .cctvPer100m(metrics == null ? null : metrics.getCctvPer100m())
                 .police(nearestPoliceDescription(adminDong, policeStations))
                 .crimeRate(metrics == null ? null : metrics.getCrimeRate())
                 .safetyScore(metrics == null ? null : metrics.getSafetyScore())
