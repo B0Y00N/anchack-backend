@@ -1,6 +1,7 @@
 package com.kbait.anchack.admindong.mapper;
 
 import com.kbait.anchack.admindong.dto.AdminDongMetricsRow;
+import com.kbait.anchack.admindong.dto.HouseTypeMetricRow;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -13,4 +14,6 @@ import java.util.List;
 public interface AdminDongDetailMapper {
 
     List<AdminDongMetricsRow> findMetricsByIds(@Param("adminDongIds") List<Long> adminDongIds);
+
+    List<HouseTypeMetricRow> findHouseTypeMetricsByIds(@Param("adminDongIds") List<Long> adminDongIds);
 }

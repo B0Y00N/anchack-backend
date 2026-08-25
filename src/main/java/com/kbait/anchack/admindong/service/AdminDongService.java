@@ -2,12 +2,14 @@ package com.kbait.anchack.admindong.service;
 
 import com.kbait.anchack.admindong.domain.AdminDong;
 import com.kbait.anchack.admindong.dto.AdminDongMetricsRow;
+import com.kbait.anchack.admindong.dto.HouseTypeMetricRow;
 import com.kbait.anchack.admindong.dto.RentalAmountRow;
 import com.kbait.anchack.admindong.dto.response.AdminDongDetailResponse;
 import com.kbait.anchack.admindong.dto.response.AdminDongResponse;
 import com.kbait.anchack.admindong.dto.response.DongReviewStatsResponse;
 import com.kbait.anchack.admindong.dto.response.PlaceResponse;
 import com.kbait.anchack.admindong.dto.response.RentDistBucket;
+import com.kbait.anchack.admindong.dto.response.HouseTypeMetricResponse;
 import com.kbait.anchack.admindong.mapper.AdminDongDetailMapper;
 import com.kbait.anchack.admindong.mapper.AdminDongMapper;
 import com.kbait.anchack.place.domain.Place;
@@ -30,7 +32,10 @@ public class AdminDongService {
 
     private static final int MAX_BATCH_SIZE = 20;
     private static final String MONTHLY_RENT_TYPE = "월세";
+    private static final String JEONSE_RENT_TYPE = "전세";
     private static final String POLICE_CATEGORY = "POLICE";
+    private static final String SUBWAY_STATION_CATEGORY = "SUBWAY_STATION";
+    private static final String BUS_STOP_CATEGORY = "BUS_STOP";
     private static final double EARTH_RADIUS_METERS = 6_371_000;
     /** 실제 도보 경로가 아니라 직선거리 기반 근사치다(평균 도보 속도 약 4km/h 가정). */
     private static final double WALKING_SPEED_METERS_PER_MINUTE = 67;
@@ -104,9 +109,8 @@ public class AdminDongService {
      * 정상적으로는 전부 존재해야 하고, 없더라도 요청 전체를 실패시킬 이유는 없다).
      * 응답 순서는 요청한 ids 순서를 그대로 따른다.
      *
-     * 보증금/월세 중위값·구간별 분포는 이 엔드포인트가 rentalType/houseType을 받지 않아
-     * "조건에 따라 달라지는 값"이 아니라 "동네 자체의 고정 정보"라는 문서 취지에 맞춰
-     * 월세 거래 전체(주거유형 구분 없음) 기준으로 계산한다.
+     * 월세 보증금·월세 중위값/분포와 전세금 중위값/분포는 모두 주거유형 구분 없이
+     * 해당 동의 실제 거래를 각각 집계한 동네 고정 정보다.
      */
     @Transactional(readOnly = true)
     public List<AdminDongDetailResponse> getAdminDongDetails(List<Long> adminDongIds) {
@@ -123,12 +127,20 @@ public class AdminDongService {
 
         Map<Long, AdminDongMetricsRow> metricsById = adminDongDetailMapper.findMetricsByIds(adminDongIds).stream()
             .collect(Collectors.toMap(AdminDongMetricsRow::getAdminDongId, Function.identity()));
+        Map<Long, List<HouseTypeMetricRow>> houseTypeMetricsById = adminDongDetailMapper
+            .findHouseTypeMetricsByIds(adminDongIds).stream()
+            .collect(Collectors.groupingBy(HouseTypeMetricRow::getAdminDongId));
 
         Map<Long, List<RentalAmountRow>> rentalRowsById =
             rentalTransactionMapper.findAmountsByAdminDongIdsAndRentalType(adminDongIds, MONTHLY_RENT_TYPE).stream()
                 .collect(Collectors.groupingBy(RentalAmountRow::getAdminDongId));
+        Map<Long, List<RentalAmountRow>> jeonseRowsById =
+            rentalTransactionMapper.findAmountsByAdminDongIdsAndRentalType(adminDongIds, JEONSE_RENT_TYPE).stream()
+                .collect(Collectors.groupingBy(RentalAmountRow::getAdminDongId));
 
         List<Place> policeStations = placeMapper.findByCategory(POLICE_CATEGORY);
+        List<Place> subwayStations = placeMapper.findByCategory(SUBWAY_STATION_CATEGORY);
+        List<Place> busStops = placeMapper.findByCategory(BUS_STOP_CATEGORY);
 
         return adminDongIds.stream()
             .filter(adminDongsById::containsKey)
@@ -136,7 +148,11 @@ public class AdminDongService {
                 adminDongsById.get(adminDongId),
                 metricsById.get(adminDongId),
                 rentalRowsById.getOrDefault(adminDongId, List.of()),
-                policeStations))
+                jeonseRowsById.getOrDefault(adminDongId, List.of()),
+                houseTypeMetricsById.getOrDefault(adminDongId, List.of()),
+                policeStations,
+                subwayStations,
+                busStops))
             .toList();
     }
 
@@ -195,11 +211,19 @@ public class AdminDongService {
         AdminDong adminDong,
         AdminDongMetricsRow metrics,
         List<RentalAmountRow> rentalRows,
-        List<Place> policeStations
+        List<RentalAmountRow> jeonseRows,
+        List<HouseTypeMetricRow> houseTypeMetrics,
+        List<Place> policeStations,
+        List<Place> subwayStations,
+        List<Place> busStops
     ) {
         List<Long> deposits = rentalRows.stream().map(RentalAmountRow::getDepositAmount).sorted().toList();
         List<Long> monthlyRents = rentalRows.stream()
             .map(row -> (long) row.getMonthlyRentAmount())
+            .sorted()
+            .toList();
+        List<Long> jeonseDeposits = jeonseRows.stream()
+            .map(RentalAmountRow::getDepositAmount)
             .sorted()
             .toList();
 
@@ -207,23 +231,54 @@ public class AdminDongService {
                 .adminDongId(adminDong.getAdminDongId())
                 .guName(adminDong.getGuName())
                 .dongName(adminDong.getName())
+                .dongPopulation(adminDong.getDongPopulation())
                 .lat(adminDong.getLatitude())
                 .lng(adminDong.getLongitude())
                 .deposit(median(deposits))
                 .monthly(median(monthlyRents))
                 .rentDist(toRentDist(monthlyRents))
-                .cctv(metrics == null ? null : metrics.getCctvPer1000())
-                .cctvPer100m(metrics == null ? null : metrics.getCctvPer100m())
+                .monthlyHouseTypes(toHouseTypeMetrics(houseTypeMetrics, MONTHLY_RENT_TYPE))
+                .jeonseDeposit(median(jeonseDeposits))
+                .jeonseDist(toJeonseDist(jeonseDeposits))
+                .jeonseHouseTypes(toHouseTypeMetrics(houseTypeMetrics, JEONSE_RENT_TYPE))
+                .cctv(metrics == null ? null : metrics.getCctv())
+                .safetyBellCount(metrics == null ? null : metrics.getSafetyBellCount())
+                .safetyScoreMax(metrics == null ? null : metrics.getSafetyScoreMax())
                 .police(nearestPoliceDescription(adminDong, policeStations))
                 .crimeRate(metrics == null ? null : metrics.getCrimeRate())
                 .safetyScore(metrics == null ? null : metrics.getSafetyScore())
                 .gyms(metrics == null ? null : metrics.getGymCount())
                 .convenience(metrics == null ? null : metrics.getConvenienceStoreCount())
                 .hospitals(metrics == null ? null : metrics.getHospitalCount())
+                .pharmacies(metrics == null ? null : metrics.getPharmacyCount())
+                .banks(metrics == null ? null : metrics.getBankCount())
+                .cafes(metrics == null ? null : metrics.getCafeCount())
+                .restaurants(metrics == null ? null : metrics.getRestaurantCount())
                 .parks(metrics == null ? null : metrics.getParkCount())
                 .department(metrics == null ? null : metrics.getDepartmentStoreCount())
                 .mart(metrics == null ? null : metrics.getMartCount())
+                .subwayStationCount(metrics == null ? null : metrics.getSubwayStationCount())
+                .busStopCount(metrics == null ? null : metrics.getBusStopCount())
+                .transitScore(metrics == null ? null : metrics.getTransitScore())
+                .nearestSubwayStation(nearestPlaceDescription(adminDong, subwayStations))
+                .nearestBusStop(nearestPlaceDescription(adminDong, busStops))
                 .build();
+    }
+
+    private List<HouseTypeMetricResponse> toHouseTypeMetrics(
+        List<HouseTypeMetricRow> rows,
+        String rentalType
+    ) {
+        return rows.stream()
+            .filter(row -> rentalType.equals(row.getRentalType()))
+            .map(row -> HouseTypeMetricResponse.builder()
+                .houseType(row.getHouseType())
+                .avgArea(row.getAvgArea())
+                .avgDeposit(row.getAvgDeposit())
+                .avgRent(row.getAvgRent())
+                .transactionCount(row.getTransactionCount())
+                .build())
+            .toList();
     }
 
     /** sortedValues는 이미 오름차순 정렬되어 있어야 한다. */
@@ -259,13 +314,32 @@ public class AdminDongService {
         return buckets;
     }
 
+    /** 전세금 분포는 현재 전체 전세 거래의 20/40/60/80 분위값을 반올림한 구간으로 나눈다. */
+    private List<RentDistBucket> toJeonseDist(List<Long> sortedJeonseDeposits) {
+        if (sortedJeonseDeposits.isEmpty()) {
+            return List.of();
+        }
+
+        List<RentDistBucket> buckets = new ArrayList<>();
+        buckets.add(RentDistBucket.builder().label("1억 3천만원 이하").count(countInRange(sortedJeonseDeposits, Long.MIN_VALUE, 13_001)).build());
+        buckets.add(RentDistBucket.builder().label("1억 3천만~1억 8,500만원").count(countInRange(sortedJeonseDeposits, 13_001, 18_501)).build());
+        buckets.add(RentDistBucket.builder().label("1억 8,500만~2억 3,500만원").count(countInRange(sortedJeonseDeposits, 18_501, 23_501)).build());
+        buckets.add(RentDistBucket.builder().label("2억 3,500만~3억원").count(countInRange(sortedJeonseDeposits, 23_501, 30_001)).build());
+        buckets.add(RentDistBucket.builder().label("3억원 이상").count(countInRange(sortedJeonseDeposits, 30_001, Long.MAX_VALUE)).build());
+        return buckets;
+    }
+
     /** [fromInclusive, toExclusive) 구간의 건수를 센다. */
     private int countInRange(List<Long> sortedValues, long fromInclusive, long toExclusive) {
         return (int) sortedValues.stream().filter(value -> value >= fromInclusive && value < toExclusive).count();
     }
 
     private String nearestPoliceDescription(AdminDong adminDong, List<Place> policeStations) {
-        return policeStations.stream()
+        return nearestPlaceDescription(adminDong, policeStations);
+    }
+
+    private String nearestPlaceDescription(AdminDong adminDong, List<Place> places) {
+        return places.stream()
             .min(Comparator.comparingDouble(place -> haversineDistanceMeters(
                 adminDong.getLatitude(), adminDong.getLongitude(),
                 place.getLatitude(), place.getLongitude())))

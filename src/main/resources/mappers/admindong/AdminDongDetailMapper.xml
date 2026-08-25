@@ -33,21 +33,31 @@
     SELECT
       ad.admin_dong_id AS adminDongId,
       sm.safety_score AS safetyScore,
-      CASE WHEN ad.dong_population > 0
-        THEN ROUND(sm.cctv_count / (ad.dong_population / 1000), 2)
-        ELSE NULL
-      END AS cctvPer1000,
-      CASE WHEN ad.dong_area > 0
-        THEN ROUND(sm.cctv_count / (ad.dong_area * 100), 2)
-        ELSE NULL
-      END AS cctvPer100m,
+      sm.cctv_count AS cctv,
+      sm.safety_bell_count AS safetyBellCount,
+      (
+        SELECT MAX(latest_sm.safety_score)
+        FROM safety_metrics latest_sm
+        JOIN (
+          SELECT admin_dong_id, MAX(safety_id) AS safety_id
+          FROM safety_metrics
+          GROUP BY admin_dong_id
+        ) latest_per_dong ON latest_per_dong.safety_id = latest_sm.safety_id
+      ) AS safetyScoreMax,
       latest_crime.crime_rate AS crimeRate,
       hm.hospital_count AS hospitalCount,
+      hm.pharmacy_count AS pharmacyCount,
+      lcm.bank_count AS bankCount,
+      fm.cafe_count AS cafeCount,
+      fm.restaurant_count AS restaurantCount,
       lcm.department_store_count AS departmentStoreCount,
       lcm.mart_count AS martCount,
       COALESCE(gym.gym_count, 0) AS gymCount,
       COALESCE(park.park_count, 0) AS parkCount,
       COALESCE(conv.convenience_store_count, 0) AS convenienceStoreCount
+      , COALESCE(subway.subway_station_count, 0) AS subwayStationCount
+      , COALESCE(bus.bus_stop_count, 0) AS busStopCount
+      , latest_transit.transit_score AS transitScore
     FROM admin_dongs ad
     LEFT JOIN safety_metrics sm ON sm.safety_id = (
       SELECT MAX(safety_id) FROM safety_metrics WHERE admin_dong_id = ad.admin_dong_id
@@ -57,6 +67,9 @@
     )
     LEFT JOIN life_convenience_metrics lcm ON lcm.convenience_id = (
       SELECT MAX(convenience_id) FROM life_convenience_metrics WHERE admin_dong_id = ad.admin_dong_id
+    )
+    LEFT JOIN food_metrics fm ON fm.food_id = (
+      SELECT MAX(food_id) FROM food_metrics WHERE admin_dong_id = ad.admin_dong_id
     )
     LEFT JOIN (
       SELECT gcs.gu_code, gcs.crime_rate
@@ -88,10 +101,46 @@
         AND <include refid="adminDongIdFilter"/>
       GROUP BY admin_dong_id
     ) park ON park.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT admin_dong_id, COUNT(*) AS subway_station_count
+      FROM places
+      WHERE category = 'SUBWAY_STATION'
+        AND <include refid="adminDongIdFilter"/>
+      GROUP BY admin_dong_id
+    ) subway ON subway.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN (
+      SELECT admin_dong_id, COUNT(*) AS bus_stop_count
+      FROM places
+      WHERE category = 'BUS_STOP'
+        AND <include refid="adminDongIdFilter"/>
+      GROUP BY admin_dong_id
+    ) bus ON bus.admin_dong_id = ad.admin_dong_id
+    LEFT JOIN transit_metrics latest_transit ON latest_transit.transit_id = (
+      SELECT MAX(transit_id) FROM transit_metrics WHERE admin_dong_id = ad.admin_dong_id
+    )
     WHERE ad.admin_dong_id IN
     <foreach collection="adminDongIds" item="adminDongId" open="(" separator="," close=")">
       #{adminDongId}
     </foreach>
+  </select>
+
+  <!-- property_metrics는 rental_type + house_type별로 이미 집계된 행이라, 상세 화면에서
+       각 주거유형의 거래 건수 비중과 평균 면적/금액을 표시할 때 그대로 사용한다. -->
+  <select id="findHouseTypeMetricsByIds" resultType="com.kbait.anchack.admindong.dto.HouseTypeMetricRow">
+    SELECT
+      admin_dong_id AS adminDongId,
+      rental_type AS rentalType,
+      house_type AS houseType,
+      avg_area AS avgArea,
+      avg_deposit AS avgDeposit,
+      avg_rent AS avgRent,
+      transaction_count AS transactionCount
+    FROM property_metrics
+    WHERE admin_dong_id IN
+    <foreach collection="adminDongIds" item="adminDongId" open="(" separator="," close=")">
+      #{adminDongId}
+    </foreach>
+    ORDER BY rental_type, house_type
   </select>
 
 </mapper>
