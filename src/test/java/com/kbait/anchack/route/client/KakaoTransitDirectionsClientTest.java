@@ -126,7 +126,7 @@ class KakaoTransitDirectionsClientTest {
     }
 
     @Test
-    void 환승이_있으면_route는_모든_구간을_이어붙이고_lineNum은_첫_구간_기준으로_채운다() throws Exception {
+    void 버스와_지하철을_함께_타면_혼합_교통수단으로_저장한다() throws Exception {
         KakaoTransitRouteResponse response = OBJECT_MAPPER.readValue(
                 """
                 {"status": "OK", "routes": [{
@@ -146,7 +146,7 @@ class KakaoTransitDirectionsClientTest {
 
         assertThat(result.getWalkMin()).isEqualTo(8);
         assertThat(result.getTransitMin()).isEqualTo(10);
-        assertThat(result.getTransportType()).isEqualTo("BUS");
+        assertThat(result.getTransportType()).isEqualTo("BUS_AND_SUBWAY");
         assertThat(result.getLineNum()).isEqualTo("7017");
         assertThat(result.getVehicleType()).isEqualTo("지선");
         assertThat(result.getRoute()).isEqualTo("7017 새마을금고앞 → DMC파인시티자이, 경의중앙선 수색 → 디지털미디어시티");

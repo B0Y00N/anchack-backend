@@ -2,6 +2,7 @@ package com.kbait.anchack.admindong.service;
 
 import com.kbait.anchack.admindong.domain.AdminDong;
 import com.kbait.anchack.admindong.dto.AdminDongMetricsRow;
+import com.kbait.anchack.admindong.dto.HouseTypeMetricRow;
 import com.kbait.anchack.admindong.dto.RentalAmountRow;
 import com.kbait.anchack.admindong.dto.response.AdminDongDetailResponse;
 import com.kbait.anchack.admindong.dto.response.PlaceResponse;
@@ -80,10 +81,15 @@ class AdminDongServiceTest {
         assertThat(response.getGuName()).isEqualTo("은평구");
         assertThat(response.getDongName()).isEqualTo("증산동");
         assertThat(response.getSafetyScore()).isEqualByComparingTo("78.00");
-        assertThat(response.getCctv()).isEqualByComparingTo("2.30");
-        assertThat(response.getCctvPer100m()).isEqualByComparingTo("0.85");
+        assertThat(response.getCctv()).isEqualTo(23);
+        assertThat(response.getSafetyBellCount()).isEqualTo(8);
+        assertThat(response.getSafetyScoreMax()).isEqualByComparingTo("65.00");
         assertThat(response.getCrimeRate()).isEqualByComparingTo("3.20");
         assertThat(response.getHospitals()).isEqualTo(3);
+        assertThat(response.getPharmacies()).isEqualTo(2);
+        assertThat(response.getBanks()).isEqualTo(4);
+        assertThat(response.getCafes()).isEqualTo(6);
+        assertThat(response.getRestaurants()).isEqualTo(8);
         assertThat(response.getDepartment()).isEqualTo(0);
         assertThat(response.getMart()).isEqualTo(0);
         assertThat(response.getGyms()).isEqualTo(5);
@@ -167,6 +173,55 @@ class AdminDongServiceTest {
     }
 
     @Test
+    void 전세금_중위값과_분포를_분위값_구간으로_반환한다() {
+        List<Long> ids = List.of(1L);
+        when(adminDongMapper.findByIds(ids)).thenReturn(List.of(adminDong(1L, "은평구", "증산동")));
+        when(adminDongDetailMapper.findMetricsByIds(ids)).thenReturn(List.of());
+        when(rentalTransactionMapper.findAmountsByAdminDongIdsAndRentalType(eq(ids), eq("월세"))).thenReturn(List.of());
+        when(rentalTransactionMapper.findAmountsByAdminDongIdsAndRentalType(eq(ids), eq("전세"))).thenReturn(List.of(
+                rentalAmount(1L, 13_000L, 0),
+                rentalAmount(1L, 18_500L, 0),
+                rentalAmount(1L, 23_500L, 0),
+                rentalAmount(1L, 30_000L, 0),
+                rentalAmount(1L, 35_000L, 0)
+        ));
+        when(placeMapper.findByCategory("POLICE")).thenReturn(List.of());
+
+        AdminDongDetailResponse response = service.getAdminDongDetails(ids).get(0);
+
+        assertThat(response.getJeonseDeposit()).isEqualTo(23_500L);
+        assertThat(response.getJeonseDist())
+                .extracting("count")
+                .containsExactly(1, 1, 1, 1, 1);
+    }
+
+    @Test
+    void 주거유형별_매물지표를_월세와_전세로_나누어_반환한다() {
+        List<Long> ids = List.of(1L);
+        when(adminDongMapper.findByIds(ids)).thenReturn(List.of(adminDong(1L, "은평구", "증산동")));
+        when(adminDongDetailMapper.findMetricsByIds(ids)).thenReturn(List.of());
+        when(adminDongDetailMapper.findHouseTypeMetricsByIds(ids)).thenReturn(List.of(
+                houseTypeMetric(1L, "월세", "오피스텔", 42, 5000L, 65L, 12),
+                houseTypeMetric(1L, "전세", "다세대", 55, 23000L, 0L, 8)
+        ));
+        when(rentalTransactionMapper.findAmountsByAdminDongIdsAndRentalType(eq(ids), any())).thenReturn(List.of());
+        when(placeMapper.findByCategory("POLICE")).thenReturn(List.of());
+
+        AdminDongDetailResponse response = service.getAdminDongDetails(ids).get(0);
+
+        assertThat(response.getMonthlyHouseTypes()).singleElement().satisfies(metric -> {
+            assertThat(metric.getHouseType()).isEqualTo("오피스텔");
+            assertThat(metric.getTransactionCount()).isEqualTo(12);
+            assertThat(metric.getAvgRent()).isEqualTo(65L);
+        });
+        assertThat(response.getJeonseHouseTypes()).singleElement().satisfies(metric -> {
+            assertThat(metric.getHouseType()).isEqualTo("다세대");
+            assertThat(metric.getAvgDeposit()).isEqualTo(23000L);
+            assertThat(metric.getAvgRent()).isEqualTo(0L);
+        });
+    }
+
+    @Test
     void 가장_가까운_지구대를_도보시간과_함께_반환한다() {
         List<Long> ids = List.of(1L);
         AdminDong dong = adminDong(1L, "은평구", "증산동");
@@ -245,16 +300,41 @@ class AdminDongServiceTest {
         AdminDongMetricsRow row = new AdminDongMetricsRow();
         row.setAdminDongId(adminDongId);
         row.setSafetyScore(new BigDecimal("78.00"));
-        row.setCctvPer1000(new BigDecimal("2.30"));
-        row.setCctvPer100m(new BigDecimal("0.85"));
+        row.setCctv(23);
+        row.setSafetyBellCount(8);
+        row.setSafetyScoreMax(new BigDecimal("65.00"));
         row.setCrimeRate(new BigDecimal("3.20"));
         row.setHospitalCount(3);
+        row.setPharmacyCount(2);
+        row.setBankCount(4);
+        row.setCafeCount(6);
+        row.setRestaurantCount(8);
         row.setDepartmentStoreCount(0);
         row.setMartCount(0);
         row.setGymCount(5);
         row.setParkCount(2);
         row.setConvenienceStoreCount(7);
 
+        return row;
+    }
+
+    private HouseTypeMetricRow houseTypeMetric(
+        Long adminDongId,
+        String rentalType,
+        String houseType,
+        int avgArea,
+        Long avgDeposit,
+        Long avgRent,
+        int transactionCount
+    ) {
+        HouseTypeMetricRow row = new HouseTypeMetricRow();
+        row.setAdminDongId(adminDongId);
+        row.setRentalType(rentalType);
+        row.setHouseType(houseType);
+        row.setAvgArea(BigDecimal.valueOf(avgArea));
+        row.setAvgDeposit(avgDeposit);
+        row.setAvgRent(avgRent);
+        row.setTransactionCount(transactionCount);
         return row;
     }
 

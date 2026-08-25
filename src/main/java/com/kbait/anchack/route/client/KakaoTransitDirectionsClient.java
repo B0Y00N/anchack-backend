@@ -61,6 +61,9 @@ public final class KakaoTransitDirectionsClient {
     private static final String AUTHORIZATION_PREFIX = "KakaoAK ";
     private static final String STATUS_OK = "OK";
     private static final String STEP_TYPE_WALKING = "WALKING";
+    private static final String STEP_TYPE_BUS = "BUS";
+    private static final String STEP_TYPE_SUBWAY = "SUBWAY";
+    private static final String TRANSPORT_TYPE_BUS_AND_SUBWAY = "BUS_AND_SUBWAY";
     private static final long RATE_LIMIT_RETRY_DELAY_MS = 500;
     private static final long PACING_INTERVAL_MS = 80;
 
@@ -200,12 +203,34 @@ public final class KakaoTransitDirectionsClient {
                 .commuteTime(secondsToMinutes(routeProperties.getTotalTime()))
                 .transferCount(routeProperties.getTransfers())
                 .route(toRouteSummary(transitSteps))
-                .transportType(transitSteps.isEmpty() ? null : stepType(transitSteps.get(0)))
+                .transportType(toTransportType(transitSteps))
                 .lineNum(firstVehicle.map(KakaoTransitVehicle::getName).orElse(null))
                 .vehicleType(firstVehicle.map(KakaoTransitVehicle::getType).orElse(null))
                 .walkMin(sumStepMinutes(walkingSteps))
                 .transitMin(sumStepMinutes(transitSteps))
                 .build();
+    }
+
+    /**
+     * 대표 첫 노선이 아니라 전체 대중교통 step의 구성을 저장한다.
+     * BUS와 SUBWAY가 함께 있으면 프론트가 "버스 및 지하철"로 표시할 수 있게
+     * BUS_AND_SUBWAY를 사용한다. lineNum/vehicleType은 노선 색상·대표 노선 표기를 위해
+     * 기존처럼 첫 탑승 구간 기준으로 유지한다.
+     */
+    private String toTransportType(List<KakaoTransitStep> transitSteps) {
+        boolean hasBus = transitSteps.stream().anyMatch(step -> STEP_TYPE_BUS.equals(stepType(step)));
+        boolean hasSubway = transitSteps.stream().anyMatch(step -> STEP_TYPE_SUBWAY.equals(stepType(step)));
+
+        if (hasBus && hasSubway) {
+            return TRANSPORT_TYPE_BUS_AND_SUBWAY;
+        }
+        if (hasBus) {
+            return STEP_TYPE_BUS;
+        }
+        if (hasSubway) {
+            return STEP_TYPE_SUBWAY;
+        }
+        return transitSteps.isEmpty() ? null : stepType(transitSteps.get(0));
     }
 
     private String stepType(KakaoTransitStep step) {
